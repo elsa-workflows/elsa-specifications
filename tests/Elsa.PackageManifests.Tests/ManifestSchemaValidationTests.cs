@@ -45,4 +45,35 @@ public sealed class ManifestSchemaValidationTests
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(x => x.RuleId == "manifest.size");
     }
+
+    [Fact]
+    public void Validate_rejects_null_package_without_throwing()
+    {
+        var result = _validator.Validate("""
+        {
+          "schemaVersion": "1.0",
+          "package": null,
+          "displayName": "Email"
+        }
+        """);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(x => x.RuleId == "package.required");
+    }
+
+    [Fact]
+    public void Validate_rejects_null_features_without_throwing()
+    {
+        var result = _validator.Validate("""
+        {
+          "schemaVersion": "1.0",
+          "package": { "id": "Elsa.Email", "version": "1.0.0" },
+          "displayName": "Email",
+          "features": null
+        }
+        """);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(x => x.RuleId == "features.invalid");
+    }
 }

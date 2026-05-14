@@ -36,22 +36,36 @@ public sealed class ManifestValidator
             errors.Add(new ManifestValidationFinding("$.schemaVersion", "schemaVersion.unsupported", $"Schema version '{manifest.SchemaVersion}' is not supported.", ManifestValidationSeverity.Error));
         }
 
-        Required(manifest.Package.Id, "$.package.id", "package.id.required", "Package ID is required.", errors);
-        Required(manifest.Package.Version, "$.package.version", "package.version.required", "Package version is required.", errors);
+        if (manifest.Package is null)
+        {
+            errors.Add(new ManifestValidationFinding("$.package", "package.required", "Package identity is required.", ManifestValidationSeverity.Error));
+        }
+        else
+        {
+            Required(manifest.Package.Id, "$.package.id", "package.id.required", "Package ID is required.", errors);
+            Required(manifest.Package.Version, "$.package.version", "package.version.required", "Package version is required.", errors);
+        }
+
         Required(manifest.DisplayName, "$.displayName", "displayName.required", "Display name is required.", errors);
 
-        if (expectedPackageId is not null && !string.Equals(expectedPackageId, manifest.Package.Id, StringComparison.OrdinalIgnoreCase))
+        if (expectedPackageId is not null && manifest.Package is not null && !string.Equals(expectedPackageId, manifest.Package.Id, StringComparison.OrdinalIgnoreCase))
             errors.Add(new ManifestValidationFinding("$.package.id", "package.id.mismatch", "Manifest package ID does not match the NuGet package ID.", ManifestValidationSeverity.Error));
 
-        if (expectedVersion is not null && !string.Equals(expectedVersion, manifest.Package.Version, StringComparison.OrdinalIgnoreCase))
+        if (expectedVersion is not null && manifest.Package is not null && !string.Equals(expectedVersion, manifest.Package.Version, StringComparison.OrdinalIgnoreCase))
             errors.Add(new ManifestValidationFinding("$.package.version", "package.version.mismatch", "Manifest package version does not match the NuGet package version.", ManifestValidationSeverity.Error));
 
         ValidateRange(manifest.Compatibility?.ElsaVersionRange, "$.compatibility.elsaVersionRange", errors);
         ValidateRange(manifest.Compatibility?.DockerImageVersionRange, "$.compatibility.dockerImageVersionRange", errors);
 
-        for (var i = 0; i < manifest.Features.Count; i++)
+        if (manifest.Features is null)
         {
-            var feature = manifest.Features[i];
+            errors.Add(new ManifestValidationFinding("$.features", "features.invalid", "Features must be an array.", ManifestValidationSeverity.Error));
+        }
+
+        var features = manifest.Features ?? [];
+        for (var i = 0; i < features.Count; i++)
+        {
+            var feature = features[i];
             Required(feature.Id, $"$.features[{i}].id", "feature.id.required", "Feature ID is required.", errors);
             Required(feature.TypeName, $"$.features[{i}].typeName", "feature.typeName.required", "Feature CLR type name is required.", errors);
             Required(feature.DisplayName, $"$.features[{i}].displayName", "feature.displayName.required", "Feature display name is required.", errors);
