@@ -4,10 +4,16 @@ using Elsa.PackageManifests.Licensing;
 
 namespace Elsa.PackageManifests;
 
+/// <summary>
+/// Describes an Elsa NuGet package using a stable, versioned wire contract.
+/// </summary>
 public sealed class ElsaPackageManifest : ExtensibleManifestObject
 {
+    /// <summary>The manifest schema version, independent from the NuGet package version.</summary>
     public string SchemaVersion { get; init; } = ManifestSchemaVersions.Current;
+    /// <summary>The NuGet package identity this manifest belongs to.</summary>
     public PackageIdentityManifest Package { get; init; } = new();
+    /// <summary>Human-readable package name for catalog and builder experiences.</summary>
     public string DisplayName { get; init; } = "";
     public string? Description { get; init; }
     public IReadOnlyList<string> Tags { get; init; } = [];
@@ -20,6 +26,9 @@ public sealed class ElsaPackageManifest : ExtensibleManifestObject
     public Dictionary<string, object?> Extensions { get; init; } = new();
 }
 
+/// <summary>
+/// Identifies the NuGet package containing the manifest.
+/// </summary>
 public sealed class PackageIdentityManifest : ExtensibleManifestObject
 {
     public string Id { get; init; } = "";

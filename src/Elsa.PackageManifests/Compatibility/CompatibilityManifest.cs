@@ -1,5 +1,8 @@
 namespace Elsa.PackageManifests.Compatibility;
 
+/// <summary>
+/// Explicit compatibility metadata for runtimes, Docker images, packages, and future checks.
+/// </summary>
 public sealed class CompatibilityManifest : ExtensibleManifestObject
 {
     public string? ElsaVersionRange { get; init; }

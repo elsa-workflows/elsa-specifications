@@ -2,9 +2,14 @@ using Elsa.PackageManifests.Compatibility;
 
 namespace Elsa.PackageManifests;
 
+/// <summary>
+/// Describes one feature exposed by an Elsa package.
+/// </summary>
 public sealed class FeatureManifest : ExtensibleManifestObject
 {
+    /// <summary>Stable feature identifier used by catalog and builder clients.</summary>
     public string Id { get; init; } = "";
+    /// <summary>Assembly-qualified or namespace-qualified CLR type name for display and diagnostics only.</summary>
     public string TypeName { get; init; } = "";
     public string DisplayName { get; init; } = "";
     public string? Description { get; init; }
