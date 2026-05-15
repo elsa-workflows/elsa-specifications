@@ -1,6 +1,7 @@
 using System.Reflection;
 using Elsa.PackageManifest.Generator.Core.AssemblyInspection;
 using Elsa.PackageManifest.Generator.Core.SchemaGeneration;
+using Elsa.PackageManifest.Generator.Core.Validation;
 
 namespace Elsa.PackageManifest.Generator.Core.Generation;
 
@@ -9,12 +10,15 @@ public sealed class SettingDiscoveryService(
     NullableMetadataReader nullableMetadataReader,
     ValidationAnnotationMapper validationAnnotationMapper,
     SettingDefaultValueResolver defaultValueResolver,
-    SettingSchemaGenerator schemaGenerator)
+    SettingSchemaGenerator schemaGenerator,
+    GenerationDiagnostics? diagnostics = null,
+    bool verboseDiagnostics = false)
 {
     public IReadOnlyList<DiscoveredSetting> Discover(Type featureType, string featureId, string featureName)
     {
         return featureType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Where(IsConfigurableProperty)
+            .Where(property => !IsIgnoredCodeHook(property, featureId))
             .Select(property => CreateSetting(property, featureId, featureName))
             .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -24,6 +28,22 @@ public sealed class SettingDiscoveryService(
         property.GetIndexParameters().Length == 0 &&
         property.GetSetMethod() is { IsPublic: true } &&
         !FeatureTypeMatcher.HasIgnoreAttribute(property);
+
+    private bool IsIgnoredCodeHook(PropertyInfo property, string featureId)
+    {
+        if (!TypeMetadataHelpers.IsDelegateOrContainsDelegate(property.PropertyType))
+            return false;
+
+        if (verboseDiagnostics)
+        {
+            diagnostics?.Verbose(
+                "EPMGEN_SETTING_CODE_HOOK_IGNORED",
+                $"Setting candidate '{featureId}.{property.Name}' was ignored because it is a code configuration hook.",
+                property.PropertyType.FullName ?? property.PropertyType.Name);
+        }
+
+        return true;
+    }
 
     private DiscoveredSetting CreateSetting(PropertyInfo property, string featureId, string featureName)
     {
@@ -62,5 +82,4 @@ public sealed class SettingDiscoveryService(
             hint.Experimental,
             hint.Extensions);
     }
-
 }

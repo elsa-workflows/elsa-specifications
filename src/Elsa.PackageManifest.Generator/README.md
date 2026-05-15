@@ -6,7 +6,11 @@
 <PackageReference Include="Elsa.PackageManifest.Generator" Version="x.y.z" PrivateAssets="all" />
 ```
 
-The generator inspects the compiled assembly with metadata-only reflection. It discovers public CShells feature classes implementing `CShells.Features.IShellFeature`, reads `ShellFeatureAttribute` metadata, discovers public settable feature properties as settings, applies XML documentation and optional manifest hint attributes, validates the result with `Elsa.PackageManifests`, and includes one root `elsa-package.json` in the produced NuGet package.
+The generator inspects the compiled assembly with metadata-only reflection. It discovers public CShells feature classes implementing `CShells.Features.IShellFeature`, reads `ShellFeatureAttribute` metadata, discovers public settable deploy-time feature properties as settings, applies XML documentation and optional manifest hint attributes, validates the result with `Elsa.PackageManifests`, and includes one root `elsa-package.json` in the produced NuGet package.
+
+Delegate-shaped code configuration hooks such as `Action<TOptions>`, `Action<IServiceProvider, HttpClient>`, `Func<IServiceProvider, TService>`, and delegate-valued factory dictionaries are ignored by default because they are application-code extension points rather than deploy-time settings. They do not produce default warnings; set `ElsaPackageManifestDiagnosticsVerbosity=verbose` to see low-importance ignored-hook diagnostics.
+
+Multi-targeted package projects include exactly one canonical manifest by default. When target frameworks produce equivalent manifest surfaces, the first declared target framework supplies the package-root manifest.
 
 Optional source-only hints are available under `Elsa.PackageManifest.Generator.Hints`:
 
@@ -25,3 +29,4 @@ Common MSBuild properties:
 - `ElsaPackageManifestStrict`
 - `ElsaPackageManifestFailOnWarnings`
 - `ElsaPackageManifestAllowTargetFrameworkDifferences`
+- `ElsaPackageManifestDiagnosticsVerbosity`

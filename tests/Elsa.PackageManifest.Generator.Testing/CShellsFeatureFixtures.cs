@@ -21,6 +21,37 @@ public sealed class ShellFeatureAttribute(string? name = null) : Attribute
 public interface IShellFeature;
 """;
 
+    public const string DelegateHooksFeatureSource = """
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Threading.Tasks;
+using CShells.Features;
+
+namespace Sample.Features;
+
+[ShellFeature("DelegateHooks", DisplayName = "Delegate Hooks")]
+public sealed class DelegateHooksFeature : IShellFeature
+{
+    public string? Endpoint { get; set; }
+
+    public Action<DelegateHookOptions>? Configure { get; set; }
+
+    public Func<IServiceProvider, object>? ServiceFactory { get; set; }
+
+    public Action<IServiceProvider, HttpClient>? ConfigureHttpClient { get; set; }
+
+    public IDictionary<string, Func<IServiceProvider, ValueTask<object>>> Factories { get; set; } =
+        new Dictionary<string, Func<IServiceProvider, ValueTask<object>>>();
+}
+
+public sealed class DelegateHookOptions
+{
+    public string Value { get; set; } = "";
+}
+""";
+
     public const string ManifestHintsSource = """
 #nullable enable
 using System;
