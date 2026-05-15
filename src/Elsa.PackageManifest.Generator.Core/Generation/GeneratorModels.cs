@@ -59,6 +59,7 @@ public sealed record DiscoveredFeature(
     IReadOnlyList<ManifestDependencyReference> Dependencies,
     IReadOnlyList<ManifestConflictReference> Conflicts,
     IReadOnlyList<string> RequiredCapabilities,
+    IReadOnlyList<ManifestInfrastructureRequirementReference> Infrastructure,
     IReadOnlyDictionary<string, object?> ExtensionMetadata,
     IReadOnlyList<DiscoveredSetting> Settings);
 
@@ -89,6 +90,16 @@ public sealed record DiscoveredSetting(
 public sealed record ManifestDependencyReference(string? PackageId, string? VersionRange, string? FeatureId);
 
 public sealed record ManifestConflictReference(string? PackageId, string? VersionRange, string? FeatureId, string? Reason);
+
+public sealed record ManifestInfrastructureRequirementReference(
+    string Id,
+    string Kind,
+    bool Optional,
+    string? Reason,
+    IReadOnlyList<string> Capabilities,
+    IReadOnlyList<string> Providers,
+    IReadOnlyList<string> ConfigurationKeys,
+    IReadOnlyDictionary<string, object?> Extensions);
 
 public sealed record XmlDocumentationEntry(string MemberName, string? Summary, string? Remarks, IReadOnlyList<string> Examples);
 

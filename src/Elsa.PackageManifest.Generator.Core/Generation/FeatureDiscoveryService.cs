@@ -41,6 +41,7 @@ public sealed class FeatureDiscoveryService(
             metadata.Dependencies.Select(x => new ManifestDependencyReference(null, null, $"{packageMetadata.PackageId}.{x}")).ToArray(),
             [],
             [],
+            [],
             metadata.Extensions,
             settings);
     }

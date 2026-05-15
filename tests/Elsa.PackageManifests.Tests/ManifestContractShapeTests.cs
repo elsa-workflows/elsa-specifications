@@ -2,6 +2,7 @@ using System.Reflection;
 using Elsa.PackageManifests;
 using Elsa.PackageManifests.Compatibility;
 using Elsa.PackageManifests.Documentation;
+using Elsa.PackageManifests.Infrastructure;
 using Elsa.PackageManifests.Licensing;
 using Elsa.PackageManifests.Validation;
 using FluentAssertions;
@@ -21,6 +22,7 @@ public sealed class ManifestContractShapeTests
             typeof(CompatibilityManifest),
             typeof(DependencyManifest),
             typeof(ConflictManifest),
+            typeof(InfrastructureRequirementManifest),
             typeof(LicenseManifest),
             typeof(DocumentationManifest),
             typeof(ManifestValidationResult)

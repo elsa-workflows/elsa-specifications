@@ -49,6 +49,7 @@ public sealed class ManifestMetadataMerger
                 Dependencies = featureOverride.Dependencies?.Select(ToDependencyReference).ToArray() ?? feature.Dependencies,
                 Conflicts = featureOverride.Conflicts?.Select(ToConflictReference).ToArray() ?? feature.Conflicts,
                 RequiredCapabilities = featureOverride.RequiredCapabilities ?? feature.RequiredCapabilities,
+                Infrastructure = featureOverride.Infrastructure?.Select(ToInfrastructureRequirementReference).ToArray() ?? feature.Infrastructure,
                 ExtensionMetadata = Merge(feature.ExtensionMetadata, featureOverride.Extensions),
                 Settings = settings
             };
@@ -79,4 +80,15 @@ public sealed class ManifestMetadataMerger
             conflict.VersionRange,
             conflict.FeatureId,
             conflict.Reason);
+
+    private static ManifestInfrastructureRequirementReference ToInfrastructureRequirementReference(InfrastructureRequirementOverride requirement) =>
+        new(
+            requirement.Id,
+            requirement.Kind,
+            requirement.Optional ?? false,
+            requirement.Reason,
+            requirement.Capabilities ?? [],
+            requirement.Providers ?? [],
+            requirement.ConfigurationKeys ?? [],
+            requirement.Extensions ?? new Dictionary<string, object?>());
 }

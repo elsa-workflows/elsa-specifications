@@ -36,7 +36,20 @@ public sealed class FeatureOverride
     public IReadOnlyList<DependencyOverride>? Dependencies { get; init; }
     public IReadOnlyList<ConflictOverride>? Conflicts { get; init; }
     public IReadOnlyList<string>? RequiredCapabilities { get; init; }
+    public IReadOnlyList<InfrastructureRequirementOverride>? Infrastructure { get; init; }
     public IReadOnlyList<SettingOverride>? Settings { get; init; }
+    public Dictionary<string, object?>? Extensions { get; init; }
+}
+
+public sealed class InfrastructureRequirementOverride
+{
+    public string Id { get; init; } = "";
+    public string Kind { get; init; } = "";
+    public bool? Optional { get; init; }
+    public string? Reason { get; init; }
+    public IReadOnlyList<string>? Capabilities { get; init; }
+    public IReadOnlyList<string>? Providers { get; init; }
+    public IReadOnlyList<string>? ConfigurationKeys { get; init; }
     public Dictionary<string, object?>? Extensions { get; init; }
 }
 

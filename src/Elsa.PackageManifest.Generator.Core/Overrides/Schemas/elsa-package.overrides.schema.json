@@ -135,6 +135,10 @@
           "items": { "type": "string", "minLength": 1 },
           "uniqueItems": true
         },
+        "infrastructure": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/infrastructureRequirement" }
+        },
         "settings": {
           "type": "array",
           "items": { "$ref": "#/$defs/settingOverride" }
@@ -161,6 +165,33 @@
         "uiHint": { "type": "string" },
         "advanced": { "type": "boolean" },
         "experimental": { "type": "boolean" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "infrastructureRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "optional": { "type": "boolean" },
+        "reason": { "type": "string" },
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "providers": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "configurationKeys": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
         "extensions": { "$ref": "#/$defs/extensions" }
       }
     },

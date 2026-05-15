@@ -116,7 +116,59 @@ public sealed class ComplexOptions
         result.diagnostics.Items.Should().Contain(x => x.Code == "EPMGEN_SETTING_TYPE_UNSUPPORTED");
     }
 
-    private static (GeneratedManifestArtifact artifact, GenerationDiagnostics diagnostics) Generate(SampleProjectBuilder project)
+    [Fact]
+    public async Task Generate_applies_infrastructure_requirements_from_override_file()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+
+namespace Sample.Features;
+
+[ShellFeature("RabbitMq", DisplayName = "RabbitMQ Messaging")]
+public sealed class RabbitMqFeature : IShellFeature
+{
+    public string ConnectionString { get; set; } = "";
+}
+""");
+
+        var build = await project.BuildAsync();
+        build.ExitCode.Should().Be(0, build.CombinedOutput);
+        var overridePath = Path.Combine(project.ProjectDirectory, "elsa-package.overrides.json");
+        await File.WriteAllTextAsync(overridePath, """
+{
+  "features": [
+    {
+      "id": "Sample.Elsa.Package.RabbitMq",
+      "infrastructure": [
+        {
+          "id": "message-broker",
+          "kind": "message-broker",
+          "reason": "RabbitMQ transport requires a broker.",
+          "providers": ["rabbitmq", "azure-service-bus"],
+          "configurationKeys": ["RabbitMq:ConnectionString"]
+        }
+      ]
+    }
+  ]
+}
+""");
+
+        var result = Generate(project, overridePath);
+        result.diagnostics.Items.Where(x => x.Severity == GenerationDiagnosticSeverity.Error).Should().BeEmpty();
+
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+        var requirement = document.RootElement
+            .GetProperty("features")[0]
+            .GetProperty("infrastructure")[0];
+
+        requirement.GetProperty("id").GetString().Should().Be("message-broker");
+        requirement.GetProperty("kind").GetString().Should().Be("message-broker");
+        requirement.GetProperty("providers").EnumerateArray().Select(x => x.GetString()).Should().BeEquivalentTo("rabbitmq", "azure-service-bus");
+        requirement.GetProperty("configurationKeys").EnumerateArray().Select(x => x.GetString()).Should().Contain("RabbitMq:ConnectionString");
+    }
+
+    private static (GeneratedManifestArtifact artifact, GenerationDiagnostics diagnostics) Generate(SampleProjectBuilder project, string? overridePath = null)
     {
         var originalCulture = CultureInfo.CurrentCulture;
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("nl-NL");
@@ -125,7 +177,7 @@ public sealed class ComplexOptions
         try
         {
             var artifact = generator.Generate(
-                new GeneratorOptions(true, Path.Combine(project.ProjectDirectory, "obj", "elsa-package.json"), true, "elsa-package.json", null, "Error", false, false, false, "concise", []),
+                new GeneratorOptions(true, Path.Combine(project.ProjectDirectory, "obj", "elsa-package.json"), true, "elsa-package.json", overridePath, "Error", false, false, false, "concise", []),
                 ProjectPackageMetadataMapper.Map("Sample.Elsa.Package", "1.2.3", "Sample", "Sample package.", "Elsa", null, null, "elsa", null, null, "net10.0", null),
                 new AssemblyInspectionInput(project.AssemblyPath, project.XmlDocumentationPath, "net10.0", [], true),
                 diagnostics);

@@ -1,4 +1,5 @@
 using Elsa.PackageManifests.Compatibility;
+using Elsa.PackageManifests.Infrastructure;
 
 namespace Elsa.PackageManifests;
 
@@ -18,6 +19,7 @@ public sealed class FeatureManifest : ExtensibleManifestObject
     public IReadOnlyList<DependencyManifest> Dependencies { get; init; } = [];
     public IReadOnlyList<ConflictManifest> Conflicts { get; init; } = [];
     public IReadOnlyList<string> RequiredCapabilities { get; init; } = [];
+    public IReadOnlyList<InfrastructureRequirementManifest> Infrastructure { get; init; } = [];
     public bool Advanced { get; init; }
     public bool Experimental { get; init; }
     public Dictionary<string, object?> Extensions { get; init; } = new();

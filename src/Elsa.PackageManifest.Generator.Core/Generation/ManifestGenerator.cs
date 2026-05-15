@@ -6,6 +6,7 @@ using Elsa.PackageManifest.Generator.Core.Validation;
 using Elsa.PackageManifests;
 using Elsa.PackageManifests.Compatibility;
 using Elsa.PackageManifests.Documentation;
+using Elsa.PackageManifests.Infrastructure;
 using Elsa.PackageManifests.Licensing;
 
 namespace Elsa.PackageManifest.Generator.Core.Generation;
@@ -128,12 +129,25 @@ public sealed class ManifestGenerator
         Dependencies = feature.Dependencies.Select(x => new DependencyManifest { PackageId = x.PackageId, VersionRange = x.VersionRange, FeatureId = x.FeatureId }).ToArray(),
         Conflicts = feature.Conflicts.Select(x => new ConflictManifest { PackageId = x.PackageId, VersionRange = x.VersionRange, FeatureId = x.FeatureId, Reason = x.Reason }).ToArray(),
         RequiredCapabilities = feature.RequiredCapabilities,
+        Infrastructure = feature.Infrastructure.Select(ToInfrastructureRequirementManifest).ToArray(),
         Advanced = feature.Advanced,
         Experimental = feature.Experimental,
         Extensions = MergeExtensions(feature.ExtensionMetadata, new Dictionary<string, object?>
         {
             ["cshellsFeatureName"] = feature.CShellsFeatureName
         })
+    };
+
+    private static InfrastructureRequirementManifest ToInfrastructureRequirementManifest(ManifestInfrastructureRequirementReference requirement) => new()
+    {
+        Id = requirement.Id,
+        Kind = requirement.Kind,
+        Optional = requirement.Optional,
+        Reason = requirement.Reason,
+        Capabilities = requirement.Capabilities,
+        Providers = requirement.Providers,
+        ConfigurationKeys = requirement.ConfigurationKeys,
+        Extensions = new Dictionary<string, object?>(requirement.Extensions, StringComparer.OrdinalIgnoreCase)
     };
 
     private static FeatureSettingManifest ToSettingManifest(DiscoveredSetting setting) => new()
