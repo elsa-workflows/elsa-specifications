@@ -8,16 +8,31 @@ public sealed class NullableMetadataReader
     {
         var type = property.PropertyType;
         if (!type.IsValueType)
-            return HasNullableAttribute(property);
+            return ReadNullableState(property) switch
+            {
+                1 => false,
+                2 => true,
+                _ => true
+            };
 
         return Nullable.GetUnderlyingType(type) is not null;
     }
 
-    private static bool HasNullableAttribute(PropertyInfo property)
+    private static byte? ReadNullableState(PropertyInfo property)
     {
-        var attributes = property.GetCustomAttributesData()
-            .Concat(property.DeclaringType?.GetCustomAttributesData() ?? []);
+        var propertyState = ReadNullableAttribute(property.GetCustomAttributesData());
+        if (propertyState is not null)
+            return propertyState;
 
+        var contextState = ReadNullableContextAttribute(property.GetCustomAttributesData())
+            ?? ReadNullableContextAttribute(property.DeclaringType?.GetCustomAttributesData() ?? [])
+            ?? ReadNullableContextAttribute(property.DeclaringType?.Module.GetCustomAttributesData() ?? []);
+
+        return contextState;
+    }
+
+    private static byte? ReadNullableAttribute(IEnumerable<CustomAttributeData> attributes)
+    {
         foreach (var attribute in attributes)
         {
             if (attribute.AttributeType.FullName != "System.Runtime.CompilerServices.NullableAttribute")
@@ -28,9 +43,21 @@ public sealed class NullableMetadataReader
 
             var value = attribute.ConstructorArguments[0].Value;
             if (value is byte b)
-                return b == 2;
+                return b;
+
+            if (value is IReadOnlyCollection<CustomAttributeTypedArgument> values && values.FirstOrDefault().Value is byte first)
+                return first;
         }
 
-        return true;
+        return null;
+    }
+
+    private static byte? ReadNullableContextAttribute(IEnumerable<CustomAttributeData> attributes)
+    {
+        var attribute = attributes.FirstOrDefault(x => x.AttributeType.FullName == "System.Runtime.CompilerServices.NullableContextAttribute");
+        if (attribute?.ConstructorArguments.Count > 0 && attribute.ConstructorArguments[0].Value is byte b)
+            return b;
+
+        return null;
     }
 }

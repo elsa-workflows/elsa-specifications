@@ -36,7 +36,7 @@ public sealed class SettingDiscoveryService(
         var enumValues = property.PropertyType.IsEnum
             ? Enum.GetNames(property.PropertyType).Order(StringComparer.Ordinal).ToArray()
             : [];
-        var displayName = hint.DisplayName ?? ToDisplayName(property.Name);
+        var displayName = hint.DisplayName ?? NamingHelpers.ToDisplayName(property.Name);
 
         return new DiscoveredSetting(
             featureId,
@@ -63,16 +63,4 @@ public sealed class SettingDiscoveryService(
             hint.Extensions);
     }
 
-    private static string ToDisplayName(string value)
-    {
-        var chars = new List<char>(value.Length + 8);
-        for (var i = 0; i < value.Length; i++)
-        {
-            if (i > 0 && char.IsUpper(value[i]) && !char.IsWhiteSpace(value[i - 1]))
-                chars.Add(' ');
-            chars.Add(value[i]);
-        }
-
-        return new string(chars.ToArray());
-    }
 }

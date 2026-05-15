@@ -73,10 +73,10 @@ public sealed class GenerateElsaPackageManifestTask : Microsoft.Build.Utilities.
             var generator = new ManifestGenerator();
             generator.Generate(options, metadata, assemblyInput, diagnostics);
 
-            foreach (var diagnostic in diagnostics.Items)
-                LogDiagnostic(diagnostic);
-
             var policy = new ValidationSeverityPolicy(options.ValidationSeverity, options.FailOnWarnings);
+            foreach (var diagnostic in diagnostics.Items)
+                LogDiagnostic(policy.MapLoggedSeverity(diagnostic));
+
             return !policy.ShouldFail(diagnostics) && !Log.HasLoggedErrors;
         }
         catch (Exception ex)

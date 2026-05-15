@@ -56,8 +56,8 @@ public sealed record DiscoveredFeature(
     bool IsGenericDefinition,
     bool Advanced,
     bool Experimental,
-    IReadOnlyList<string> Dependencies,
-    IReadOnlyList<string> Conflicts,
+    IReadOnlyList<ManifestDependencyReference> Dependencies,
+    IReadOnlyList<ManifestConflictReference> Conflicts,
     IReadOnlyList<string> RequiredCapabilities,
     IReadOnlyDictionary<string, object?> ExtensionMetadata,
     IReadOnlyList<DiscoveredSetting> Settings);
@@ -85,6 +85,10 @@ public sealed record DiscoveredSetting(
     bool Advanced,
     bool Experimental,
     IReadOnlyDictionary<string, object?> ExtensionMetadata);
+
+public sealed record ManifestDependencyReference(string? PackageId, string? VersionRange, string? FeatureId);
+
+public sealed record ManifestConflictReference(string? PackageId, string? VersionRange, string? FeatureId, string? Reason);
 
 public sealed record XmlDocumentationEntry(string MemberName, string? Summary, string? Remarks, IReadOnlyList<string> Examples);
 

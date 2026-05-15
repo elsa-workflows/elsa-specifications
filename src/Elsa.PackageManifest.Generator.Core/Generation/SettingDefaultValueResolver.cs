@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 
 namespace Elsa.PackageManifest.Generator.Core.Generation;
@@ -22,19 +23,21 @@ public sealed class SettingDefaultValueResolver
     {
         var type = Nullable.GetUnderlyingType(targetType) ?? targetType;
 
-        if (type == typeof(string))
+        if (IsClrType(type, "System.String"))
             return value;
-        if (type == typeof(bool) && bool.TryParse(value, out var b))
+        if (IsClrType(type, "System.Boolean") && bool.TryParse(value, out var b))
             return b;
-        if (type == typeof(int) && int.TryParse(value, out var i))
+        if (IsClrType(type, "System.Int32") && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i))
             return i;
-        if (type == typeof(long) && long.TryParse(value, out var l))
+        if (IsClrType(type, "System.Int64") && long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var l))
             return l;
-        if (type == typeof(double) && double.TryParse(value, out var d))
+        if (IsClrType(type, "System.Double") && double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
             return d;
-        if (type == typeof(decimal) && decimal.TryParse(value, out var m))
+        if (IsClrType(type, "System.Decimal") && decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var m))
             return m;
 
         return value;
     }
+
+    private static bool IsClrType(Type type, string fullName) => string.Equals(type.FullName, fullName, StringComparison.Ordinal);
 }

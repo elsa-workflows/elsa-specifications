@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Elsa.PackageManifests;
+using Json.Schema;
 
 namespace Elsa.PackageManifest.Generator.Core.Overrides;
 
@@ -17,6 +18,35 @@ public sealed class ManifestOverrideReader
             throw new InvalidOperationException($"Override file '{path}' exceeds the 256 KB limit.");
 
         var json = File.ReadAllText(path);
+        ValidateSchema(json);
         return JsonSerializer.Deserialize<ManifestOverride>(json, ManifestJsonSerializerOptions.Default);
+    }
+
+    private static void ValidateSchema(string json)
+    {
+        var schemaJson = ReadSchemaJson();
+        var schema = JsonSchema.FromText(schemaJson);
+        using var document = JsonDocument.Parse(json);
+        var results = schema.Evaluate(document.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+
+        if (results.IsValid)
+            return;
+
+        var errors = (results.Details ?? [])
+            .Where(x => x.Errors is { Count: > 0 })
+            .SelectMany(x => x.Errors!.Select(error => $"{x.InstanceLocation}: {error.Value}"))
+            .DefaultIfEmpty("Override file does not match the override schema.");
+
+        throw new InvalidOperationException(string.Join(Environment.NewLine, errors));
+    }
+
+    private static string ReadSchemaJson()
+    {
+        var assembly = typeof(ManifestOverrideReader).Assembly;
+        var resourceName = assembly.GetManifestResourceNames()
+            .Single(x => x.EndsWith("elsa-package.overrides.schema.json", StringComparison.Ordinal));
+        using var stream = assembly.GetManifestResourceStream(resourceName) ?? throw new InvalidOperationException("Embedded override schema was not found.");
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
     }
 }

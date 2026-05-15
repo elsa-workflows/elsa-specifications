@@ -27,10 +27,10 @@ public sealed class FeatureDiscoveryService(
             featureId,
             metadata.FeatureName,
             type.FullName ?? type.Name,
-            metadata.DisplayName ?? ToDisplayName(metadata.FeatureName),
+            metadata.DisplayName ?? NamingHelpers.ToDisplayName(metadata.FeatureName),
             metadata.Description,
             null,
-            type.GetInterfaces().Any(x => x.FullName == FeatureTypeMatcher.ShellFeatureInterfaceName && x.DeclaringType is null)
+            type.GetInterfaces().Any(x => x.FullName == FeatureTypeMatcher.ShellFeatureInterfaceName)
                 ? FeatureDiscoverySource.IShellFeature
                 : FeatureDiscoverySource.InheritedIShellFeature,
             type.IsPublic,
@@ -38,26 +38,10 @@ public sealed class FeatureDiscoveryService(
             type.IsGenericTypeDefinition,
             false,
             false,
-            metadata.Dependencies,
+            metadata.Dependencies.Select(x => new ManifestDependencyReference(null, null, $"{packageMetadata.PackageId}.{x}")).ToArray(),
             [],
             [],
             metadata.Extensions,
             settings);
-    }
-
-    private static string ToDisplayName(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return value;
-
-        var chars = new List<char>(value.Length + 8);
-        for (var i = 0; i < value.Length; i++)
-        {
-            if (i > 0 && char.IsUpper(value[i]) && !char.IsWhiteSpace(value[i - 1]))
-                chars.Add(' ');
-            chars.Add(value[i]);
-        }
-
-        return new string(chars.ToArray());
     }
 }

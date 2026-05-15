@@ -13,7 +13,17 @@ public sealed class ManifestSurfaceComparer
                 {
                     id = feature.GetProperty("id").GetString(),
                     settings = feature.TryGetProperty("settings", out var settings)
-                        ? settings.EnumerateArray().Select(setting => setting.GetProperty("name").GetString()).Order().ToArray()
+                        ? settings.EnumerateArray()
+                            .Select(setting => new
+                            {
+                                name = setting.GetProperty("name").GetString(),
+                                clrType = setting.TryGetProperty("clrType", out var clrType) ? clrType.GetString() : null,
+                                jsonType = setting.TryGetProperty("jsonType", out var jsonType) ? jsonType.GetString() : null,
+                                required = setting.TryGetProperty("required", out var required) && required.GetBoolean(),
+                                validation = setting.TryGetProperty("validation", out var validation) ? validation.GetRawText() : null
+                            })
+                            .OrderBy(x => x.name)
+                            .ToArray()
                         : []
                 })
                 .OrderBy(x => x.id)

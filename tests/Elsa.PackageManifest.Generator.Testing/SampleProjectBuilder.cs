@@ -93,9 +93,11 @@ public sealed class SampleProjectBuilder : IAsyncDisposable
             startInfo.ArgumentList.Add(argument);
 
         using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start dotnet.");
-        var output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var error = await process.StandardError.ReadToEndAsync(cancellationToken);
+        var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
         await process.WaitForExitAsync(cancellationToken);
+        var output = await outputTask;
+        var error = await errorTask;
         return new CommandResult(process.ExitCode, output, error);
     }
 }

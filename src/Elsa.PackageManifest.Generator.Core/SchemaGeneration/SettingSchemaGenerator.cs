@@ -47,10 +47,10 @@ public sealed class SettingSchemaGenerator
             return "integer";
         if (IsClrType(type, "System.Single") || IsClrType(type, "System.Double") || IsClrType(type, "System.Decimal"))
             return "number";
+        if (ImplementsGeneric(type, typeof(IDictionary<,>)) || ImplementsGeneric(type, typeof(IReadOnlyDictionary<,>)))
+            return "object";
         if (type.IsArray || ImplementsGeneric(type, typeof(IEnumerable<>)))
             return "array";
-        if (ImplementsGeneric(type, typeof(IDictionary<,>)))
-            return "object";
 
         return "unsupported";
     }
@@ -62,8 +62,12 @@ public sealed class SettingSchemaGenerator
     private static bool IsClrType(Type type, string fullName) => string.Equals(type.FullName, fullName, StringComparison.Ordinal);
 
     private static bool ImplementsGeneric(Type type, Type genericType) =>
-        type.IsGenericType && type.GetGenericTypeDefinition() == genericType ||
-        type.GetInterfaces().Any(x => x.IsGenericType && x.GetGenericTypeDefinition() == genericType);
+        IsGenericTypeDefinition(type, genericType) ||
+        type.GetInterfaces().Any(x => IsGenericTypeDefinition(x, genericType));
+
+    private static bool IsGenericTypeDefinition(Type type, Type genericType) =>
+        type.IsGenericType &&
+        string.Equals(type.GetGenericTypeDefinition().FullName, genericType.FullName, StringComparison.Ordinal);
 }
 
 public sealed record SettingSchemaResult(

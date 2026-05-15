@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 
 namespace Elsa.PackageManifest.Generator.Core.Generation;
@@ -41,8 +42,12 @@ public sealed class ValidationAnnotationMapper
         if (attribute.ConstructorArguments.Count < 2)
             return;
 
-        values["minimum"] = ConvertAttributeValue(attribute.ConstructorArguments[0].Value);
-        values["maximum"] = ConvertAttributeValue(attribute.ConstructorArguments[1].Value);
+        var offset = attribute.ConstructorArguments.Count >= 3 && attribute.ConstructorArguments[0].ArgumentType.FullName == "System.Type" ? 1 : 0;
+        if (attribute.ConstructorArguments.Count <= offset + 1)
+            return;
+
+        values["minimum"] = ConvertAttributeValue(attribute.ConstructorArguments[offset].Value);
+        values["maximum"] = ConvertAttributeValue(attribute.ConstructorArguments[offset + 1].Value);
     }
 
     private static void AddFirstConstructorArgument(IDictionary<string, object?> values, CustomAttributeData attribute, string key)
@@ -54,7 +59,8 @@ public sealed class ValidationAnnotationMapper
     private static object? ConvertAttributeValue(object? value) => value switch
     {
         null => null,
-        string s when int.TryParse(s, out var i) => i,
+        string s when int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i) => i,
+        string s when decimal.TryParse(s, NumberStyles.Number, CultureInfo.InvariantCulture, out var d) => d,
         _ => value
     };
 }

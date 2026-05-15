@@ -46,8 +46,8 @@ public sealed class ManifestMetadataMerger
                 Category = featureOverride.Category ?? feature.Category,
                 Advanced = featureOverride.Advanced ?? feature.Advanced,
                 Experimental = featureOverride.Experimental ?? feature.Experimental,
-                Dependencies = featureOverride.Dependencies?.Select(x => x.FeatureId ?? x.PackageId).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!).ToArray() ?? feature.Dependencies,
-                Conflicts = featureOverride.Conflicts?.Select(x => x.FeatureId ?? x.PackageId).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!).ToArray() ?? feature.Conflicts,
+                Dependencies = featureOverride.Dependencies?.Select(ToDependencyReference).ToArray() ?? feature.Dependencies,
+                Conflicts = featureOverride.Conflicts?.Select(ToConflictReference).ToArray() ?? feature.Conflicts,
                 RequiredCapabilities = featureOverride.RequiredCapabilities ?? feature.RequiredCapabilities,
                 ExtensionMetadata = Merge(feature.ExtensionMetadata, featureOverride.Extensions),
                 Settings = settings
@@ -66,4 +66,17 @@ public sealed class ManifestMetadataMerger
 
         return result;
     }
+
+    private static ManifestDependencyReference ToDependencyReference(DependencyOverride dependency) =>
+        new(
+            string.IsNullOrWhiteSpace(dependency.PackageId) ? null : dependency.PackageId,
+            dependency.VersionRange,
+            dependency.FeatureId);
+
+    private static ManifestConflictReference ToConflictReference(ConflictOverride conflict) =>
+        new(
+            string.IsNullOrWhiteSpace(conflict.PackageId) ? null : conflict.PackageId,
+            conflict.VersionRange,
+            conflict.FeatureId,
+            conflict.Reason);
 }
