@@ -28,7 +28,8 @@ public sealed class ManifestGenerator
         var validationMapper = new ValidationAnnotationMapper();
         var defaultValueResolver = new SettingDefaultValueResolver();
         var schemaGenerator = new SchemaGeneration.SettingSchemaGenerator();
-        var settingDiscovery = new SettingDiscoveryService(metadataReader, nullableReader, validationMapper, defaultValueResolver, schemaGenerator);
+        var verboseDiagnostics = string.Equals(options.DiagnosticsVerbosity, "verbose", StringComparison.OrdinalIgnoreCase);
+        var settingDiscovery = new SettingDiscoveryService(metadataReader, nullableReader, validationMapper, defaultValueResolver, schemaGenerator, diagnostics, verboseDiagnostics);
         var featureMatcher = new FeatureTypeMatcher(options.AdditionalFeatureInterfaceTypes);
         var featureDiscovery = new FeatureDiscoveryService(featureMatcher, metadataReader, settingDiscovery);
         var assemblyReader = new AssemblyMetadataReader();
@@ -54,7 +55,7 @@ public sealed class ManifestGenerator
         }
         catch (Exception ex)
         {
-            diagnostics.Error("EPMGEN_OVERRIDE_INVALID", ex.Message, options.OverrideFile);
+            diagnostics.Fatal("EPMGEN_OVERRIDE_INVALID", ex.Message, options.OverrideFile, category: GenerationDiagnosticCategory.InvalidInput);
         }
 
         var recommendedValidator = new RecommendedMetadataValidator();
@@ -69,9 +70,23 @@ public sealed class ManifestGenerator
         var validator = new GeneratedManifestValidator();
         var validationResult = validator.Validate(manifestJson, packageMetadata.PackageId, packageMetadata.Version);
         foreach (var error in validationResult.Errors)
-            diagnostics.Error("EPMGEN_MANIFEST_INVALID", error.Message, error.Path, error.Path, error.RuleId);
+            diagnostics.Error(
+                "EPMGEN_MANIFEST_INVALID",
+                error.Message,
+                error.Path,
+                error.Path,
+                error.RuleId,
+                GenerationDiagnosticCategory.ManifestValidation,
+                canMapValidationSeverity: true);
         foreach (var warning in validationResult.Warnings)
-            diagnostics.Warning("EPMGEN_MANIFEST_WARNING", warning.Message, warning.Path, warning.Path, warning.RuleId);
+            diagnostics.Warning(
+                "EPMGEN_MANIFEST_WARNING",
+                warning.Message,
+                warning.Path,
+                warning.Path,
+                warning.RuleId,
+                GenerationDiagnosticCategory.ManifestValidation,
+                canMapValidationSeverity: true);
 
         var outputDirectory = Path.GetDirectoryName(options.OutputPath);
         if (!string.IsNullOrWhiteSpace(outputDirectory))
