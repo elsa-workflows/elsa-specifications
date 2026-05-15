@@ -35,6 +35,9 @@ public sealed class EntityFrameworkCoreFeature : IShellFeature
 
     public string RequiredName { get; set; } = "";
 
+    [StringLength(100, MinimumLength = 5)]
+    public string? Code { get; set; }
+
     public List<string> SupportedItems { get; set; } = [];
 
     public Dictionary<string, int> SupportedMap { get; set; } = [];
@@ -67,11 +70,13 @@ public sealed class EntityFrameworkCoreFeature : IShellFeature
         feature.GetProperty("description").GetString().Should().Be("Adds EF Core persistence.");
 
         var settings = feature.GetProperty("settings").EnumerateArray().ToDictionary(x => x.GetProperty("name").GetString()!);
-        settings.Keys.Should().BeEquivalentTo("BatchSize", "OptionalBatchSize", "Provider", "Ratio", "RequiredName", "SupportedItems", "SupportedMap");
+        settings.Keys.Should().BeEquivalentTo("BatchSize", "Code", "OptionalBatchSize", "Provider", "Ratio", "RequiredName", "SupportedItems", "SupportedMap");
         settings["Provider"].GetProperty("jsonType").GetString().Should().Be("string");
         settings["Provider"].GetProperty("defaultValue").GetString().Should().Be("Sqlite");
         settings["BatchSize"].GetProperty("validation").GetProperty("minimum").GetDecimal().Should().Be(1);
         settings["BatchSize"].GetProperty("validation").GetProperty("maximum").GetDecimal().Should().Be(100);
+        settings["Code"].GetProperty("validation").GetProperty("minLength").GetInt32().Should().Be(5);
+        settings["Code"].GetProperty("validation").GetProperty("maxLength").GetInt32().Should().Be(100);
         settings["RequiredName"].GetProperty("required").GetBoolean().Should().BeTrue();
         settings["SupportedItems"].GetProperty("jsonType").GetString().Should().Be("array");
         settings["SupportedMap"].GetProperty("jsonType").GetString().Should().Be("object");

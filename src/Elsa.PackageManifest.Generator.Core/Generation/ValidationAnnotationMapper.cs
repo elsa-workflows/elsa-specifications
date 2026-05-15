@@ -21,6 +21,7 @@ public sealed class ValidationAnnotationMapper
                     break;
                 case "System.ComponentModel.DataAnnotations.StringLengthAttribute":
                     AddFirstConstructorArgument(values, attribute, "maxLength");
+                    AddNamedArgument(values, attribute, "MinimumLength", "minLength", x => x is int length && length > 0);
                     break;
                 case "System.ComponentModel.DataAnnotations.MinLengthAttribute":
                     AddFirstConstructorArgument(values, attribute, "minLength");
@@ -54,6 +55,22 @@ public sealed class ValidationAnnotationMapper
     {
         if (attribute.ConstructorArguments.Count > 0)
             values[key] = ConvertAttributeValue(attribute.ConstructorArguments[0].Value);
+    }
+
+    private static void AddNamedArgument(
+        IDictionary<string, object?> values,
+        CustomAttributeData attribute,
+        string memberName,
+        string key,
+        Func<object?, bool>? predicate = null)
+    {
+        var argument = attribute.NamedArguments.FirstOrDefault(x => x.MemberName == memberName);
+        if (argument.MemberName is null)
+            return;
+
+        var value = ConvertAttributeValue(argument.TypedValue.Value);
+        if (predicate is null || predicate(value))
+            values[key] = value;
     }
 
     private static object? ConvertAttributeValue(object? value) => value switch
