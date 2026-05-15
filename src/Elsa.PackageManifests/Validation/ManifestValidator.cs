@@ -69,6 +69,19 @@ public sealed class ManifestValidator
             Required(feature.Id, $"$.features[{i}].id", "feature.id.required", "Feature ID is required.", errors);
             Required(feature.TypeName, $"$.features[{i}].typeName", "feature.typeName.required", "Feature CLR type name is required.", errors);
             Required(feature.DisplayName, $"$.features[{i}].displayName", "feature.displayName.required", "Feature display name is required.", errors);
+
+            if (feature.Infrastructure is null)
+            {
+                errors.Add(new ManifestValidationFinding($"$.features[{i}].infrastructure", "feature.infrastructure.invalid", "Feature infrastructure must be an array.", ManifestValidationSeverity.Error));
+                continue;
+            }
+
+            for (var requirementIndex = 0; requirementIndex < feature.Infrastructure.Count; requirementIndex++)
+            {
+                var requirement = feature.Infrastructure[requirementIndex];
+                Required(requirement.Id, $"$.features[{i}].infrastructure[{requirementIndex}].id", "infrastructure.id.required", "Infrastructure requirement ID is required.", errors);
+                Required(requirement.Kind, $"$.features[{i}].infrastructure[{requirementIndex}].kind", "infrastructure.kind.required", "Infrastructure requirement kind is required.", errors);
+            }
         }
 
         if (manifest.ExtensionData.Count > 0)

@@ -105,4 +105,30 @@ public sealed class ManifestSchemaValidationTests
 
         result.IsValid.Should().BeTrue();
     }
+
+    [Fact]
+    public void Validate_rejects_infrastructure_requirements_without_id_or_kind()
+    {
+        var result = _validator.Validate("""
+        {
+          "schemaVersion": "1.0",
+          "package": { "id": "Elsa.RabbitMq", "version": "1.0.0" },
+          "displayName": "RabbitMQ",
+          "features": [
+            {
+              "id": "Elsa.RabbitMq.Messaging",
+              "typeName": "Elsa.RabbitMq.RabbitMqFeature",
+              "displayName": "RabbitMQ Messaging",
+              "infrastructure": [
+                { "id": "", "kind": "" }
+              ]
+            }
+          ]
+        }
+        """);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(x => x.RuleId == "infrastructure.id.required");
+        result.Errors.Should().Contain(x => x.RuleId == "infrastructure.kind.required");
+    }
 }
