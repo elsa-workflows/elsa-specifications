@@ -1,6 +1,6 @@
 namespace Elsa.PackageManifest.Generator.Core.AssemblyInspection;
 
-public static class TypeMetadataHelpers
+internal static class TypeMetadataHelpers
 {
     public static Type GetNonNullableType(Type type) =>
         IsNullableValueType(type) ? type.GetGenericArguments()[0] : type;

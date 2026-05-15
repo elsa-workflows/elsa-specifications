@@ -13,11 +13,14 @@ public sealed class ValidationSeverityPolicy(string validationSeverity, bool fai
 
     public GenerationDiagnostic MapLoggedSeverity(GenerationDiagnostic diagnostic)
     {
-        if (diagnostic.Severity != GenerationDiagnosticSeverity.Error || diagnostic.IsFatal || !diagnostic.CanMapValidationSeverity)
+        if (diagnostic.Severity != GenerationDiagnosticSeverity.Error || diagnostic.IsFatal)
             return diagnostic;
 
         if (string.Equals(validationSeverity, "None", StringComparison.OrdinalIgnoreCase))
             return diagnostic with { Severity = GenerationDiagnosticSeverity.Info };
+
+        if (!diagnostic.CanMapValidationSeverity)
+            return diagnostic;
 
         if (string.Equals(validationSeverity, "Warning", StringComparison.OrdinalIgnoreCase))
             return diagnostic with { Severity = GenerationDiagnosticSeverity.Warning };

@@ -35,6 +35,28 @@ public sealed class GenerationDiagnosticSeverityTests
         policy.ShouldFail(diagnostics).Should().BeTrue();
     }
 
+    [Fact]
+    public void None_severity_downgrades_non_fatal_non_mappable_errors()
+    {
+        var diagnostics = new GenerationDiagnostics();
+        diagnostics.Error("EPMGEN_SETTING_TYPE_UNSUPPORTED", "Setting type is unsupported.");
+        var policy = new ValidationSeverityPolicy("None", false);
+
+        policy.MapLoggedSeverity(diagnostics.Items[0]).Severity.Should().Be(GenerationDiagnosticSeverity.Info);
+        policy.ShouldFail(diagnostics).Should().BeFalse();
+    }
+
+    [Fact]
+    public void None_severity_does_not_downgrade_fatal_failures()
+    {
+        var diagnostics = new GenerationDiagnostics();
+        diagnostics.Fatal("EPMGEN_ASSEMBLY_INVALID", "Assembly could not be inspected.");
+        var policy = new ValidationSeverityPolicy("None", false);
+
+        policy.MapLoggedSeverity(diagnostics.Items[0]).Severity.Should().Be(GenerationDiagnosticSeverity.Error);
+        policy.ShouldFail(diagnostics).Should().BeTrue();
+    }
+
     private static GenerationDiagnostics CreateManifestValidationDiagnostics()
     {
         var diagnostics = new GenerationDiagnostics();
