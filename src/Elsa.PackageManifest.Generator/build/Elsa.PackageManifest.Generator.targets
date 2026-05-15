@@ -1,0 +1,50 @@
+<Project>
+  <UsingTask
+    TaskName="Elsa.PackageManifest.Generator.MSBuild.GenerateElsaPackageManifestTask"
+    AssemblyFile="$(MSBuildThisFileDirectory)..\tasks\Elsa.PackageManifest.Generator.MSBuild.dll"
+    Condition="Exists('$(MSBuildThisFileDirectory)..\tasks\Elsa.PackageManifest.Generator.MSBuild.dll')" />
+
+  <Target Name="GenerateElsaPackageManifest"
+          AfterTargets="Build"
+          BeforeTargets="GenerateNuspec"
+          Condition="'$(GenerateElsaPackageManifest)' == 'true' and '$(IsCrossTargetingBuild)' != 'true'">
+    <PropertyGroup>
+      <_ElsaPackageManifestOverrideFile Condition="'$(ElsaPackageManifestOverrideFile)' != ''">$(ElsaPackageManifestOverrideFile)</_ElsaPackageManifestOverrideFile>
+      <_ElsaPackageManifestOverrideFile Condition="'$(_ElsaPackageManifestOverrideFile)' == '' and Exists('$(MSBuildProjectDirectory)\elsa-package.overrides.json')">$(MSBuildProjectDirectory)\elsa-package.overrides.json</_ElsaPackageManifestOverrideFile>
+      <_ElsaPackageManifestOutputPath Condition="'$(ElsaPackageManifestOutputPath)' != ''">$(ElsaPackageManifestOutputPath)</_ElsaPackageManifestOutputPath>
+      <_ElsaPackageManifestOutputPath Condition="'$(_ElsaPackageManifestOutputPath)' == ''">$(IntermediateOutputPath)elsa-package.json</_ElsaPackageManifestOutputPath>
+    </PropertyGroup>
+
+    <GenerateElsaPackageManifestTask
+      AssemblyPath="$(TargetPath)"
+      XmlDocumentationPath="$(DocumentationFile)"
+      OutputPath="$(_ElsaPackageManifestOutputPath)"
+      OverrideFile="$(_ElsaPackageManifestOverrideFile)"
+      PackageId="$(PackageId)"
+      Version="$(PackageVersion)"
+      Title="$(Title)"
+      Description="$(Description)"
+      Authors="$(Authors)"
+      RepositoryUrl="$(RepositoryUrl)"
+      PackageProjectUrl="$(PackageProjectUrl)"
+      PackageTags="$(PackageTags)"
+      PackageLicenseExpression="$(PackageLicenseExpression)"
+      PackageReadmeFile="$(PackageReadmeFile)"
+      TargetFramework="$(TargetFramework)"
+      TargetFrameworks="$(TargetFrameworks)"
+      ValidationSeverity="$(ElsaPackageManifestValidationSeverity)"
+      Strict="$(ElsaPackageManifestStrict)"
+      FailOnWarnings="$(ElsaPackageManifestFailOnWarnings)"
+      AllowTargetFrameworkDifferences="$(ElsaPackageManifestAllowTargetFrameworkDifferences)"
+      DiagnosticsVerbosity="$(ElsaPackageManifestDiagnosticsVerbosity)"
+      AdditionalFeatureInterfaceTypes="$(ElsaPackageManifestAdditionalFeatureInterfaceTypes)"
+      ReferenceAssemblyPaths="@(ReferencePath)" />
+
+    <ItemGroup Condition="'$(ElsaPackageManifestIncludeInPackage)' == 'true'">
+      <None Include="$(_ElsaPackageManifestOutputPath)"
+            Pack="true"
+            PackagePath="$(ElsaPackageManifestPackagePath)"
+            Visible="false" />
+    </ItemGroup>
+  </Target>
+</Project>

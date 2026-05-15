@@ -1,0 +1,60 @@
+using System.Reflection;
+
+namespace Elsa.PackageManifest.Generator.Core.Generation;
+
+public sealed class ValidationAnnotationMapper
+{
+    public IReadOnlyDictionary<string, object?> Map(PropertyInfo property)
+    {
+        var values = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var attribute in property.GetCustomAttributesData())
+        {
+            switch (attribute.AttributeType.FullName)
+            {
+                case "System.ComponentModel.DataAnnotations.RequiredAttribute":
+                    values["required"] = true;
+                    break;
+                case "System.ComponentModel.DataAnnotations.RangeAttribute":
+                    AddRange(values, attribute);
+                    break;
+                case "System.ComponentModel.DataAnnotations.StringLengthAttribute":
+                    AddFirstConstructorArgument(values, attribute, "maxLength");
+                    break;
+                case "System.ComponentModel.DataAnnotations.MinLengthAttribute":
+                    AddFirstConstructorArgument(values, attribute, "minLength");
+                    break;
+                case "System.ComponentModel.DataAnnotations.MaxLengthAttribute":
+                    AddFirstConstructorArgument(values, attribute, "maxLength");
+                    break;
+                case "System.ComponentModel.DataAnnotations.RegularExpressionAttribute":
+                    AddFirstConstructorArgument(values, attribute, "pattern");
+                    break;
+            }
+        }
+
+        return values;
+    }
+
+    private static void AddRange(IDictionary<string, object?> values, CustomAttributeData attribute)
+    {
+        if (attribute.ConstructorArguments.Count < 2)
+            return;
+
+        values["minimum"] = ConvertAttributeValue(attribute.ConstructorArguments[0].Value);
+        values["maximum"] = ConvertAttributeValue(attribute.ConstructorArguments[1].Value);
+    }
+
+    private static void AddFirstConstructorArgument(IDictionary<string, object?> values, CustomAttributeData attribute, string key)
+    {
+        if (attribute.ConstructorArguments.Count > 0)
+            values[key] = ConvertAttributeValue(attribute.ConstructorArguments[0].Value);
+    }
+
+    private static object? ConvertAttributeValue(object? value) => value switch
+    {
+        null => null,
+        string s when int.TryParse(s, out var i) => i,
+        _ => value
+    };
+}
