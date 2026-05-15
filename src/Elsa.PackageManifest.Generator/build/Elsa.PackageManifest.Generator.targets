@@ -1,4 +1,8 @@
 <Project>
+  <PropertyGroup>
+    <TargetsForTfmSpecificContentInPackage Condition="'$(ElsaPackageManifestIncludeInPackage)' == 'true' and '$(GenerateElsaPackageManifest)' == 'true'">$(TargetsForTfmSpecificContentInPackage);_ElsaPackageManifestGetPackageFiles</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
   <UsingTask
     TaskName="Elsa.PackageManifest.Generator.MSBuild.GenerateElsaPackageManifestTask"
     AssemblyFile="$(MSBuildThisFileDirectory)..\tasks\Elsa.PackageManifest.Generator.MSBuild.dll"
@@ -13,7 +17,7 @@
       <_ElsaPackageManifestOverrideFile Condition="'$(_ElsaPackageManifestOverrideFile)' == '' and Exists('$(MSBuildProjectDirectory)\elsa-package.overrides.json')">$(MSBuildProjectDirectory)\elsa-package.overrides.json</_ElsaPackageManifestOverrideFile>
       <_ElsaPackageManifestOutputPath Condition="'$(ElsaPackageManifestOutputPath)' != ''">$(ElsaPackageManifestOutputPath)</_ElsaPackageManifestOutputPath>
       <_ElsaPackageManifestOutputPath Condition="'$(_ElsaPackageManifestOutputPath)' == ''">$(IntermediateOutputPath)elsa-package.json</_ElsaPackageManifestOutputPath>
-      <_ElsaPackageManifestCanonicalTargetFramework Condition="'$(TargetFrameworks)' != ''">$([System.String]::Copy('$(TargetFrameworks)').Split(';')[0])</_ElsaPackageManifestCanonicalTargetFramework>
+      <_ElsaPackageManifestCanonicalTargetFramework Condition="'$(TargetFrameworks)' != ''">$([System.String]::Copy('$(TargetFrameworks)').Split(';')[0].Trim())</_ElsaPackageManifestCanonicalTargetFramework>
       <_ElsaPackageManifestCanonicalTargetFramework Condition="'$(_ElsaPackageManifestCanonicalTargetFramework)' == ''">$(TargetFramework)</_ElsaPackageManifestCanonicalTargetFramework>
     </PropertyGroup>
 
@@ -42,11 +46,28 @@
       AdditionalFeatureInterfaceTypes="$(ElsaPackageManifestAdditionalFeatureInterfaceTypes)"
       ReferenceAssemblyPaths="@(ReferencePath)" />
 
-    <ItemGroup Condition="'$(ElsaPackageManifestIncludeInPackage)' == 'true' and ('$(TargetFrameworks)' == '' or '$(TargetFramework)' == '$(_ElsaPackageManifestCanonicalTargetFramework)')">
-      <None Include="$(_ElsaPackageManifestOutputPath)"
-            Pack="true"
-            PackagePath="$(ElsaPackageManifestPackagePath)"
-            Visible="false" />
+    <ItemGroup>
+      <_ElsaPackageManifestGeneratedFile Include="$(_ElsaPackageManifestOutputPath)" />
     </ItemGroup>
+  </Target>
+
+  <Target Name="_ElsaPackageManifestGetPackageFiles"
+          DependsOnTargets="GenerateElsaPackageManifest"
+          Condition="'$(GenerateElsaPackageManifest)' == 'true' and '$(IsCrossTargetingBuild)' != 'true'">
+    <PropertyGroup>
+      <_ElsaPackageManifestOutputPath Condition="'$(ElsaPackageManifestOutputPath)' != ''">$(ElsaPackageManifestOutputPath)</_ElsaPackageManifestOutputPath>
+      <_ElsaPackageManifestOutputPath Condition="'$(_ElsaPackageManifestOutputPath)' == ''">$(IntermediateOutputPath)elsa-package.json</_ElsaPackageManifestOutputPath>
+      <_ElsaPackageManifestCanonicalTargetFramework Condition="'$(TargetFrameworks)' != ''">$([System.String]::Copy('$(TargetFrameworks)').Split(';')[0].Trim())</_ElsaPackageManifestCanonicalTargetFramework>
+      <_ElsaPackageManifestCanonicalTargetFramework Condition="'$(_ElsaPackageManifestCanonicalTargetFramework)' == ''">$(TargetFramework)</_ElsaPackageManifestCanonicalTargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(ElsaPackageManifestIncludeInPackage)' == 'true' and Exists('$(_ElsaPackageManifestOutputPath)') and ('$(TargetFrameworks)' == '' or '$(TargetFramework)' == '$(_ElsaPackageManifestCanonicalTargetFramework)')">
+      <TfmSpecificPackageFile Include="$(_ElsaPackageManifestOutputPath)"
+                              PackagePath="$(ElsaPackageManifestPackagePath)" />
+    </ItemGroup>
+
+    <Message Condition="'@(TfmSpecificPackageFile)' != ''"
+             Importance="Low"
+             Text="Including Elsa package manifest '$(_ElsaPackageManifestOutputPath)' as package entry '$(ElsaPackageManifestPackagePath)' from target framework '$(TargetFramework)'." />
   </Target>
 </Project>

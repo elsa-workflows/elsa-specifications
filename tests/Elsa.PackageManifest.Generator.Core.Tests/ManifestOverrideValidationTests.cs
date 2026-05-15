@@ -21,4 +21,16 @@ public sealed class ManifestOverrideValidationTests
 
         diagnostics.Items.Should().Contain(x => x.Code == "EPMGEN_OVERRIDE_FEATURE_ID");
     }
+
+    [Fact]
+    public void Warning_severity_does_not_downgrade_invalid_override_input_failures()
+    {
+        var diagnostics = new GenerationDiagnostics();
+        diagnostics.Fatal(
+            "EPMGEN_OVERRIDE_INVALID",
+            "Override JSON is invalid.",
+            category: GenerationDiagnosticCategory.InvalidInput);
+
+        new ValidationSeverityPolicy("Warning", false).ShouldFail(diagnostics).Should().BeTrue();
+    }
 }

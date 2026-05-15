@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Elsa.PackageManifest.Generator.Core\Elsa.PackageManifest.Generator.Core.csproj" />
     <ProjectReference Include="..\Elsa.PackageManifest.Generator.Testing\Elsa.PackageManifest.Generator.Testing.csproj" />
   </ItemGroup>
 

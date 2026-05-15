@@ -74,8 +74,9 @@ public sealed class GenerateElsaPackageManifestTask : Microsoft.Build.Utilities.
             generator.Generate(options, metadata, assemblyInput, diagnostics);
 
             var policy = new ValidationSeverityPolicy(options.ValidationSeverity, options.FailOnWarnings);
-            foreach (var diagnostic in diagnostics.Items)
-                LogDiagnostic(policy.MapLoggedSeverity(diagnostic));
+            var mappedDiagnostics = diagnostics.Items.Select(policy.MapLoggedSeverity).ToArray();
+            foreach (var diagnostic in mappedDiagnostics)
+                LogDiagnostic(diagnostic);
 
             return !policy.ShouldFail(diagnostics) && !Log.HasLoggedErrors;
         }

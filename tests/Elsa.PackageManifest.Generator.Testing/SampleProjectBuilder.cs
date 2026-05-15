@@ -24,15 +24,29 @@ public sealed class SampleProjectBuilder : IAsyncDisposable
 
     public string ProjectFile => Path.Combine(ProjectDirectory, "Sample.Elsa.Package.csproj");
 
-    public string AssemblyPath => Path.Combine(ProjectDirectory, "bin", "Debug", _properties["TargetFramework"], "Sample.Elsa.Package.dll");
+    public string TargetFramework => _properties.TryGetValue("TargetFramework", out var targetFramework)
+        ? targetFramework
+        : _properties["TargetFrameworks"].Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[0];
+
+    public string PackagePath => Path.Combine(ProjectDirectory, "bin", "Debug", $"{_properties["PackageId"]}.{_properties["Version"]}.nupkg");
+
+    public string AssemblyPath => Path.Combine(ProjectDirectory, "bin", "Debug", TargetFramework, "Sample.Elsa.Package.dll");
 
     public string XmlDocumentationPath => Path.ChangeExtension(AssemblyPath, ".xml");
 
     public SampleProjectBuilder WithProperty(string name, string value)
     {
+        if (string.Equals(name, "TargetFrameworks", StringComparison.OrdinalIgnoreCase))
+            _properties.Remove("TargetFramework");
+        else if (string.Equals(name, "TargetFramework", StringComparison.OrdinalIgnoreCase))
+            _properties.Remove("TargetFrameworks");
+
         _properties[name] = value;
         return this;
     }
+
+    public SampleProjectBuilder WithTargetFrameworks(params string[] targetFrameworks) =>
+        WithProperty("TargetFrameworks", string.Join(';', targetFrameworks));
 
     public SampleProjectBuilder WithSource(string source)
     {
@@ -50,6 +64,12 @@ public sealed class SampleProjectBuilder : IAsyncDisposable
     {
         WriteProject();
         return await RunDotNetAsync(["pack", ProjectFile, "--nologo", "--no-build"], cancellationToken);
+    }
+
+    public async Task<CommandResult> PackWithBuildAsync(CancellationToken cancellationToken = default)
+    {
+        WriteProject();
+        return await RunDotNetAsync(["pack", ProjectFile, "--nologo"], cancellationToken);
     }
 
     public ValueTask DisposeAsync()
