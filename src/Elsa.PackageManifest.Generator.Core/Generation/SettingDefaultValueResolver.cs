@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Reflection;
+using Elsa.PackageManifest.Generator.Core.AssemblyInspection;
 
 namespace Elsa.PackageManifest.Generator.Core.Generation;
 
@@ -21,7 +22,7 @@ public sealed class SettingDefaultValueResolver
 
     private static object? ConvertString(string value, Type targetType)
     {
-        var type = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        var type = TypeMetadataHelpers.GetNonNullableType(targetType);
 
         if (IsClrType(type, "System.String"))
             return value;

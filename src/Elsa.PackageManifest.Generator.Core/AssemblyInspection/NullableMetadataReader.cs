@@ -15,7 +15,7 @@ public sealed class NullableMetadataReader
                 _ => true
             };
 
-        return Nullable.GetUnderlyingType(type) is not null;
+        return TypeMetadataHelpers.IsNullableValueType(type);
     }
 
     private static byte? ReadNullableState(PropertyInfo property)

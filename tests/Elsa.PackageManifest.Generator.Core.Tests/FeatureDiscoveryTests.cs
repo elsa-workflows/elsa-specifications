@@ -42,6 +42,9 @@ public sealed class EntityFrameworkCoreFeature : IShellFeature
     [ManifestSetting(DefaultValue = "3.14")]
     public decimal Ratio { get; set; }
 
+    [ManifestSetting(DefaultValue = "42")]
+    public int? OptionalBatchSize { get; set; }
+
     [ManifestIgnore]
     public string Ignored { get; set; } = "";
 
@@ -64,7 +67,7 @@ public sealed class EntityFrameworkCoreFeature : IShellFeature
         feature.GetProperty("description").GetString().Should().Be("Adds EF Core persistence.");
 
         var settings = feature.GetProperty("settings").EnumerateArray().ToDictionary(x => x.GetProperty("name").GetString()!);
-        settings.Keys.Should().BeEquivalentTo("BatchSize", "Provider", "Ratio", "RequiredName", "SupportedItems", "SupportedMap");
+        settings.Keys.Should().BeEquivalentTo("BatchSize", "OptionalBatchSize", "Provider", "Ratio", "RequiredName", "SupportedItems", "SupportedMap");
         settings["Provider"].GetProperty("jsonType").GetString().Should().Be("string");
         settings["Provider"].GetProperty("defaultValue").GetString().Should().Be("Sqlite");
         settings["BatchSize"].GetProperty("validation").GetProperty("minimum").GetDecimal().Should().Be(1);
@@ -73,6 +76,9 @@ public sealed class EntityFrameworkCoreFeature : IShellFeature
         settings["SupportedItems"].GetProperty("jsonType").GetString().Should().Be("array");
         settings["SupportedMap"].GetProperty("jsonType").GetString().Should().Be("object");
         settings["Ratio"].GetProperty("defaultValue").GetDecimal().Should().Be(3.14m);
+        settings["OptionalBatchSize"].GetProperty("jsonType").GetString().Should().Be("integer");
+        settings["OptionalBatchSize"].GetProperty("extensions").GetProperty("nullable").GetBoolean().Should().BeTrue();
+        settings["OptionalBatchSize"].GetProperty("defaultValue").GetInt32().Should().Be(42);
     }
 
     [Fact]

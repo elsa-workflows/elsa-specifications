@@ -1,4 +1,5 @@
 using System.Reflection;
+using Elsa.PackageManifest.Generator.Core.AssemblyInspection;
 
 namespace Elsa.PackageManifest.Generator.Core.SchemaGeneration;
 
@@ -6,7 +7,7 @@ public sealed class SettingSchemaGenerator
 {
     public SettingSchemaResult Generate(Type type, bool nullable, IReadOnlyDictionary<string, object?> validation)
     {
-        var nonNullableType = Nullable.GetUnderlyingType(type) ?? type;
+        var nonNullableType = TypeMetadataHelpers.GetNonNullableType(type);
         var schema = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         var jsonType = GetJsonType(nonNullableType);
 
