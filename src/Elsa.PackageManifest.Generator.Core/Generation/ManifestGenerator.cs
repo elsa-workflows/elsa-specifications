@@ -43,7 +43,6 @@ public sealed class ManifestGenerator
         var xmlEntries = xmlReader.Read(assemblyInput.XmlDocumentationPath);
         var features = assemblyReader.Read(assemblyInput.AssemblyPath, assemblyInput.ReferenceAssemblyPaths, assembly => featureDiscovery.Discover(assembly, packageMetadata));
         features = xmlEnricher.Enrich(features, xmlEntries);
-        ValidateSettingSchemas(features, diagnostics);
 
         ManifestOverride? manifestOverride = null;
         try
@@ -255,18 +254,4 @@ public sealed class ManifestGenerator
         return result;
     }
 
-    private static void ValidateSettingSchemas(IReadOnlyList<DiscoveredFeature> features, GenerationDiagnostics diagnostics)
-    {
-        foreach (var setting in features.SelectMany(x => x.Settings))
-        {
-            if (string.Equals(setting.JsonType, "unsupported", StringComparison.OrdinalIgnoreCase))
-            {
-                diagnostics.Error(
-                    "EPMGEN_SETTING_TYPE_UNSUPPORTED",
-                    $"Setting '{setting.FeatureId}.{setting.Name}' uses unsupported CLR type '{setting.ClrType}'.",
-                    setting.ClrType,
-                    $"$.features[?(@.id=='{setting.FeatureId}')].settings[?(@.name=='{setting.Name}')]");
-            }
-        }
-    }
 }
