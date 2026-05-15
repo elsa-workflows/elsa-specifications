@@ -100,11 +100,7 @@ public sealed class SettingDiscoveryService(
     private void ReportUnsupportedSetting(PropertyInfo property, string featureId)
     {
         var clrType = property.PropertyType.FullName ?? property.PropertyType.Name;
-        diagnostics?.Info(
-            "EPMGEN_SETTING_TYPE_UNSUPPORTED",
-            $"Setting candidate '{featureId}.{property.Name}' was ignored because CLR type '{clrType}' is not supported by package manifests.",
-            clrType,
-            category: GenerationDiagnosticCategory.SettingDiscovery);
+        diagnostics?.Add(UnsupportedTypeDiagnosticFactory.Create(featureId, property.Name, clrType));
     }
 
     private static bool IsUnsupportedSchema(SettingSchemaResult schema) =>

@@ -47,7 +47,7 @@ public sealed class DefaultAuthenticationFeature : IShellFeature
         diagnostics.Items.Should().Contain(x =>
             x.Code == "EPMGEN_SETTING_TYPE_UNSUPPORTED" &&
             x.Severity == GenerationDiagnosticSeverity.Info &&
-            x.Target == "System.Type");
+            x.Target == "Sample.Elsa.Package.Identity.ApiKeyProviderType");
         diagnostics.Items.Should().NotContain(x => x.Severity == GenerationDiagnosticSeverity.Warning || x.Severity == GenerationDiagnosticSeverity.Error);
 
         using var document = JsonDocument.Parse(artifact.ManifestJson);
