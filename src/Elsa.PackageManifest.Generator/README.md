@@ -10,6 +10,8 @@ The generator inspects the compiled assembly with metadata-only reflection. It d
 
 Delegate-shaped code configuration hooks such as `Action<TOptions>`, `Action<IServiceProvider, HttpClient>`, `Func<IServiceProvider, TService>`, and delegate-valued factory dictionaries are ignored by default because they are application-code extension points rather than deploy-time settings. They do not produce default warnings; set `ElsaPackageManifestDiagnosticsVerbosity=verbose` to see low-importance ignored-hook diagnostics.
 
+Unsupported CLR-only setting shapes such as `System.Type` and complex option objects are also omitted from manifest settings. They produce low-importance diagnostics only, so normal builds and fail-on-warnings builds can continue while the manifest remains limited to deploy-time configurable settings.
+
 Multi-targeted package projects include exactly one canonical manifest by default. When target frameworks produce equivalent manifest surfaces, the first declared target framework supplies the package-root manifest.
 
 Optional source-only hints are available under `Elsa.PackageManifest.Generator.Hints`:

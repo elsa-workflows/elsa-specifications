@@ -36,6 +36,20 @@ public sealed class GenerateElsaPackageManifestTaskDiagnosticTests
     }
 
     [Fact]
+    public async Task Execute_succeeds_with_unsupported_setting_when_fail_on_warnings_is_true()
+    {
+        await using var project = await BuildUnsupportedSettingProjectAsync();
+        var buildEngine = new CapturingBuildEngine();
+
+        var result = CreateTask(project, buildEngine, failOnWarnings: true).Execute();
+
+        result.Should().BeTrue();
+        buildEngine.Errors.Should().BeEmpty();
+        buildEngine.Warnings.Should().BeEmpty();
+        buildEngine.Messages.Should().Contain(x => x.Message != null && x.Message.Contains("EPMGEN_SETTING_TYPE_UNSUPPORTED", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Execute_fails_infrastructure_errors_even_when_validation_severity_is_warning()
     {
         var buildEngine = new CapturingBuildEngine();
@@ -85,10 +99,33 @@ public sealed class WarningFeature : IShellFeature
         return project;
     }
 
+    private static async Task<SampleProjectBuilder> BuildUnsupportedSettingProjectAsync()
+    {
+        var project = new SampleProjectBuilder().WithSource("""
+#nullable enable
+using System;
+using CShells.Features;
+
+namespace Sample.Features;
+
+[ShellFeature("Identity", Description = "Identity feature.")]
+public sealed class IdentityFeature : IShellFeature
+{
+    public string Name { get; set; } = "";
+
+    public Type? ApiKeyProviderType { get; set; }
+}
+""");
+        var build = await project.BuildAsync();
+        build.ExitCode.Should().Be(0, build.CombinedOutput);
+        return project;
+    }
+
     private sealed class CapturingBuildEngine : IBuildEngine
     {
         public List<BuildErrorEventArgs> Errors { get; } = [];
         public List<BuildWarningEventArgs> Warnings { get; } = [];
+        public List<BuildMessageEventArgs> Messages { get; } = [];
 
         public bool ContinueOnError => false;
         public int LineNumberOfTaskNode => 0;
@@ -103,7 +140,7 @@ public sealed class WarningFeature : IShellFeature
 
         public void LogErrorEvent(BuildErrorEventArgs e) => Errors.Add(e);
         public void LogWarningEvent(BuildWarningEventArgs e) => Warnings.Add(e);
-        public void LogMessageEvent(BuildMessageEventArgs e) { }
+        public void LogMessageEvent(BuildMessageEventArgs e) => Messages.Add(e);
         public void LogCustomEvent(CustomBuildEventArgs e) { }
     }
 }

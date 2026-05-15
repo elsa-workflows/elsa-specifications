@@ -16,10 +16,18 @@ public sealed class SettingDiscoveryService(
 {
     public IReadOnlyList<DiscoveredSetting> Discover(Type featureType, string featureId, string featureName)
     {
-        return featureType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(IsConfigurableProperty)
-            .Where(property => !IsIgnoredCodeHook(property, featureId))
-            .Select(property => CreateSetting(property, featureId, featureName))
+        var settings = new List<DiscoveredSetting>();
+        foreach (var property in featureType.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(IsConfigurableProperty))
+        {
+            if (IsIgnoredCodeHook(property, featureId))
+                continue;
+
+            var setting = TryCreateSetting(property, featureId, featureName);
+            if (setting is not null)
+                settings.Add(setting);
+        }
+
+        return settings
             .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
@@ -45,14 +53,20 @@ public sealed class SettingDiscoveryService(
         return true;
     }
 
-    private DiscoveredSetting CreateSetting(PropertyInfo property, string featureId, string featureName)
+    private DiscoveredSetting? TryCreateSetting(PropertyInfo property, string featureId, string featureName)
     {
         var hint = metadataReader.ReadSettingMetadata(property);
         var nullable = nullableMetadataReader.IsNullable(property);
         var validation = validationAnnotationMapper.Map(property);
-        var required = hint.Required || validation.ContainsKey("required") || (!nullable && defaultValueResolver.Resolve(property, hint.DefaultValue) is null);
-        var defaultValue = defaultValueResolver.Resolve(property, hint.DefaultValue);
         var schema = schemaGenerator.Generate(property.PropertyType, nullable, validation);
+        if (IsUnsupportedSchema(schema))
+        {
+            ReportUnsupportedSetting(property, featureId);
+            return null;
+        }
+
+        var defaultValue = defaultValueResolver.Resolve(property, hint.DefaultValue);
+        var required = hint.Required || validation.ContainsKey("required") || (!nullable && defaultValue is null);
         var enumValues = property.PropertyType.IsEnum
             ? Enum.GetNames(property.PropertyType).Order(StringComparer.Ordinal).ToArray()
             : [];
@@ -82,4 +96,17 @@ public sealed class SettingDiscoveryService(
             hint.Experimental,
             hint.Extensions);
     }
+
+    private void ReportUnsupportedSetting(PropertyInfo property, string featureId)
+    {
+        var clrType = property.PropertyType.FullName ?? property.PropertyType.Name;
+        diagnostics?.Info(
+            "EPMGEN_SETTING_TYPE_UNSUPPORTED",
+            $"Setting candidate '{featureId}.{property.Name}' was ignored because CLR type '{clrType}' is not supported by package manifests.",
+            clrType,
+            category: GenerationDiagnosticCategory.SettingDiscovery);
+    }
+
+    private static bool IsUnsupportedSchema(SettingSchemaResult schema) =>
+        string.Equals(schema.JsonType, "unsupported", StringComparison.OrdinalIgnoreCase);
 }

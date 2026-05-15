@@ -87,7 +87,7 @@ public sealed class EntityFrameworkCoreFeature : IShellFeature
     }
 
     [Fact]
-    public async Task Generate_reports_unsupported_complex_setting_types()
+    public async Task Generate_omits_unsupported_complex_setting_types()
     {
         await using var project = new SampleProjectBuilder()
             .WithSource("""
@@ -96,7 +96,7 @@ using CShells.Features;
 
 namespace Sample.Features;
 
-[ShellFeature("Complex", DisplayName = "Complex Feature")]
+[ShellFeature("Complex", DisplayName = "Complex Feature", Description = "Complex feature.")]
 public sealed class ComplexFeature : IShellFeature
 {
     public ComplexOptions Options { get; set; } = new();
@@ -113,7 +113,12 @@ public sealed class ComplexOptions
 
         var result = Generate(project);
 
-        result.diagnostics.Items.Should().Contain(x => x.Code == "EPMGEN_SETTING_TYPE_UNSUPPORTED");
+        result.diagnostics.Items.Should().Contain(x => x.Code == "EPMGEN_SETTING_TYPE_UNSUPPORTED" && x.Severity == GenerationDiagnosticSeverity.Info);
+        result.diagnostics.Items.Should().NotContain(x => x.Severity == GenerationDiagnosticSeverity.Warning || x.Severity == GenerationDiagnosticSeverity.Error);
+
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+        var settings = document.RootElement.GetProperty("features")[0].GetProperty("settings").EnumerateArray();
+        settings.Should().BeEmpty();
     }
 
     [Fact]
