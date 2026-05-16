@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup>
     <TargetsForTfmSpecificContentInPackage Condition="'$(ElsaPackageManifestIncludeInPackage)' == 'true' and '$(GenerateElsaPackageManifest)' == 'true'">$(TargetsForTfmSpecificContentInPackage);_ElsaPackageManifestGetPackageFiles</TargetsForTfmSpecificContentInPackage>
+    <_ElsaPackageManifestGenerateForPack Condition="'$(NoBuild)' != 'true'">GenerateElsaPackageManifest</_ElsaPackageManifestGenerateForPack>
   </PropertyGroup>
 
   <UsingTask
@@ -11,7 +12,7 @@
   <Target Name="GenerateElsaPackageManifest"
           AfterTargets="Build"
           BeforeTargets="GenerateNuspec"
-          Condition="'$(GenerateElsaPackageManifest)' == 'true' and '$(IsCrossTargetingBuild)' != 'true'">
+          Condition="'$(GenerateElsaPackageManifest)' == 'true' and '$(NoBuild)' != 'true' and '$(IsCrossTargetingBuild)' != 'true'">
     <PropertyGroup>
       <_ElsaPackageManifestOverrideFile Condition="'$(ElsaPackageManifestOverrideFile)' != ''">$(ElsaPackageManifestOverrideFile)</_ElsaPackageManifestOverrideFile>
       <_ElsaPackageManifestOverrideFile Condition="'$(_ElsaPackageManifestOverrideFile)' == '' and Exists('$(MSBuildProjectDirectory)\elsa-package.overrides.json')">$(MSBuildProjectDirectory)\elsa-package.overrides.json</_ElsaPackageManifestOverrideFile>
@@ -52,7 +53,7 @@
   </Target>
 
   <Target Name="_ElsaPackageManifestGetPackageFiles"
-          DependsOnTargets="GenerateElsaPackageManifest"
+          DependsOnTargets="$(_ElsaPackageManifestGenerateForPack)"
           Condition="'$(GenerateElsaPackageManifest)' == 'true' and '$(IsCrossTargetingBuild)' != 'true'">
     <PropertyGroup>
       <_ElsaPackageManifestOutputPath Condition="'$(ElsaPackageManifestOutputPath)' != ''">$(ElsaPackageManifestOutputPath)</_ElsaPackageManifestOutputPath>
@@ -60,6 +61,9 @@
       <_ElsaPackageManifestCanonicalTargetFramework Condition="'$(TargetFrameworks)' != ''">$([System.String]::Copy('$(TargetFrameworks)').Split(';')[0].Trim())</_ElsaPackageManifestCanonicalTargetFramework>
       <_ElsaPackageManifestCanonicalTargetFramework Condition="'$(_ElsaPackageManifestCanonicalTargetFramework)' == ''">$(TargetFramework)</_ElsaPackageManifestCanonicalTargetFramework>
     </PropertyGroup>
+
+    <Error Condition="'$(ElsaPackageManifestIncludeInPackage)' == 'true' and '$(NoBuild)' == 'true' and !Exists('$(_ElsaPackageManifestOutputPath)') and ('$(TargetFrameworks)' == '' or '$(TargetFramework)' == '$(_ElsaPackageManifestCanonicalTargetFramework)')"
+           Text="Elsa package manifest was not found at '$(_ElsaPackageManifestOutputPath)' during dotnet pack --no-build. Run dotnet build for configuration '$(Configuration)' before packing, run dotnet pack without --no-build, or disable manifest package inclusion with ElsaPackageManifestIncludeInPackage=false." />
 
     <ItemGroup Condition="'$(ElsaPackageManifestIncludeInPackage)' == 'true' and Exists('$(_ElsaPackageManifestOutputPath)') and ('$(TargetFrameworks)' == '' or '$(TargetFramework)' == '$(_ElsaPackageManifestCanonicalTargetFramework)')">
       <TfmSpecificPackageFile Include="$(_ElsaPackageManifestOutputPath)"
