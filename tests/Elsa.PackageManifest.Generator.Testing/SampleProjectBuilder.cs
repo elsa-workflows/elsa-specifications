@@ -185,11 +185,20 @@ public sealed class SampleProjectBuilder : IAsyncDisposable
         File.Copy(FindRepositoryFile("src/Elsa.PackageManifest.Generator/build/Elsa.PackageManifest.Generator.targets"), Path.Combine(buildDirectory, "Elsa.PackageManifest.Generator.targets"), true);
 
         foreach (var file in Directory.EnumerateFiles(AppContext.BaseDirectory, "*.*", SearchOption.TopDirectoryOnly)
-                     .Where(x => string.Equals(Path.GetExtension(x), ".dll", StringComparison.OrdinalIgnoreCase) ||
-                                 string.Equals(Path.GetExtension(x), ".json", StringComparison.OrdinalIgnoreCase)))
+                     .Where(IsGeneratorTaskAsset))
         {
             File.Copy(file, Path.Combine(tasksDirectory, Path.GetFileName(file)), true);
         }
+    }
+
+    private static bool IsGeneratorTaskAsset(string path)
+    {
+        var extension = Path.GetExtension(path);
+        if (string.Equals(extension, ".dll", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return string.Equals(extension, ".json", StringComparison.OrdinalIgnoreCase) &&
+               Path.GetFileName(path).StartsWith("Elsa.PackageManifest.Generator.", StringComparison.Ordinal);
     }
 
     private static string FindRepositoryFile(string relativePath)
