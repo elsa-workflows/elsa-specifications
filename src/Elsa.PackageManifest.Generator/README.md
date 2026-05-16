@@ -14,6 +14,8 @@ Unsupported CLR-only setting shapes such as `System.Type` and complex option obj
 
 Multi-targeted package projects include exactly one canonical manifest by default. When target frameworks produce equivalent manifest surfaces, the first declared target framework supplies the package-root manifest.
 
+`dotnet pack` generates and includes the manifest during the build portion of pack. In build-then-pack pipelines, run `dotnet build` for the same configuration first; `dotnet pack --no-build` reuses the existing `obj/<configuration>/<tfm>/elsa-package.json` instead of regenerating it. If package inclusion is enabled and that manifest is missing during `--no-build`, packing fails with an actionable message telling the maintainer to build first, pack without `--no-build`, or disable manifest package inclusion.
+
 Optional source-only hints are available under `Elsa.PackageManifest.Generator.Hints`:
 
 - `ManifestSettingAttribute`
