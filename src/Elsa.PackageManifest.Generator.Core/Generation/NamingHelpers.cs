@@ -2,6 +2,9 @@ namespace Elsa.PackageManifest.Generator.Core.Generation;
 
 internal static class NamingHelpers
 {
+    // Keep in sync with the runtime catalog's PackageDisplayNamePolicy.DefaultForPackageId rule.
+    private const string ElsaPackagePrefix = "Elsa.";
+
     public static string ToDisplayName(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -16,5 +19,16 @@ internal static class NamingHelpers
         }
 
         return new string(chars.ToArray());
+    }
+
+    public static string ToPackageDisplayName(string packageId)
+    {
+        if (string.IsNullOrWhiteSpace(packageId))
+            return packageId;
+
+        var trimmed = packageId.Trim();
+        return trimmed.StartsWith(ElsaPackagePrefix, StringComparison.OrdinalIgnoreCase)
+            ? trimmed[ElsaPackagePrefix.Length..]
+            : trimmed;
     }
 }

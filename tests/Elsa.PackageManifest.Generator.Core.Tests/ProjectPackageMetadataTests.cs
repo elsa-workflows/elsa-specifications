@@ -28,4 +28,15 @@ public sealed class ProjectPackageMetadataTests
         metadata.PackageTags.Should().Equal("elsa", "workflow");
         metadata.TargetFrameworks.Should().Equal("net10.0", "net9.0");
     }
+
+    [Theory]
+    [InlineData("Elsa.Common", "Common")]
+    [InlineData("Elsa.Expressions.CSharp", "Expressions.CSharp")]
+    [InlineData("elsa.Diagnostics.StructuredLogs", "Diagnostics.StructuredLogs")]
+    [InlineData("Elsa", "Elsa")]
+    [InlineData("Other.Package", "Other.Package")]
+    public void Package_display_name_omits_elsa_namespace_prefix(string packageId, string displayName)
+    {
+        NamingHelpers.ToPackageDisplayName(packageId).Should().Be(displayName);
+    }
 }

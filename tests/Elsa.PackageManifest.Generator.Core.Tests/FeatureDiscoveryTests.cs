@@ -122,6 +122,30 @@ public sealed class ComplexOptions
     }
 
     [Fact]
+    public async Task Generate_uses_prefixless_package_display_name_when_title_matches_package_id()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+
+namespace Sample.Features;
+
+[ShellFeature("CSharp")]
+public sealed class CSharpFeature : IShellFeature
+{
+}
+""");
+
+        var build = await project.BuildAsync();
+        build.ExitCode.Should().Be(0, build.CombinedOutput);
+
+        var result = Generate(project, packageId: "Elsa.Expressions.CSharp", title: "Elsa.Expressions.CSharp");
+
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+        document.RootElement.GetProperty("displayName").GetString().Should().Be("Expressions.CSharp");
+    }
+
+    [Fact]
     public async Task Generate_applies_infrastructure_requirements_from_override_file()
     {
         await using var project = new SampleProjectBuilder()
@@ -173,7 +197,11 @@ public sealed class RabbitMqFeature : IShellFeature
         requirement.GetProperty("configurationKeys").EnumerateArray().Select(x => x.GetString()).Should().Contain("RabbitMq:ConnectionString");
     }
 
-    private static (GeneratedManifestArtifact artifact, GenerationDiagnostics diagnostics) Generate(SampleProjectBuilder project, string? overridePath = null)
+    private static (GeneratedManifestArtifact artifact, GenerationDiagnostics diagnostics) Generate(
+        SampleProjectBuilder project,
+        string? overridePath = null,
+        string packageId = "Sample.Elsa.Package",
+        string title = "Sample")
     {
         var originalCulture = CultureInfo.CurrentCulture;
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("nl-NL");
@@ -183,7 +211,7 @@ public sealed class RabbitMqFeature : IShellFeature
         {
             var artifact = generator.Generate(
                 new GeneratorOptions(true, Path.Combine(project.ProjectDirectory, "obj", "elsa-package.json"), true, "elsa-package.json", overridePath, "Error", false, false, false, "concise", []),
-                ProjectPackageMetadataMapper.Map("Sample.Elsa.Package", "1.2.3", "Sample", "Sample package.", "Elsa", null, null, "elsa", null, null, "net10.0", null),
+                ProjectPackageMetadataMapper.Map(packageId, "1.2.3", title, "Sample package.", "Elsa", null, null, "elsa", null, null, "net10.0", null),
                 new AssemblyInspectionInput(project.AssemblyPath, project.XmlDocumentationPath, "net10.0", [], true),
                 diagnostics);
 
