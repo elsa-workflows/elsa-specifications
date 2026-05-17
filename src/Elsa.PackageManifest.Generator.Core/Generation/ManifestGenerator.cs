@@ -113,7 +113,7 @@ public sealed class ManifestGenerator
                 Id = metadata.PackageId,
                 Version = metadata.Version
             },
-            DisplayName = packageOverride?.DisplayName ?? metadata.Title ?? metadata.PackageId,
+            DisplayName = packageOverride?.DisplayName ?? DefaultPackageDisplayName(metadata),
             Description = packageOverride?.Description ?? metadata.Description,
             Tags = packageOverride?.Tags ?? metadata.PackageTags,
             Features = features.Select(ToFeatureManifest).ToArray(),
@@ -130,6 +130,15 @@ public sealed class ManifestGenerator
                 ["targetFrameworks"] = metadata.TargetFrameworks
             })
         };
+    }
+
+    private static string DefaultPackageDisplayName(ProjectPackageMetadata metadata)
+    {
+        if (!string.IsNullOrWhiteSpace(metadata.Title) &&
+            !string.Equals(metadata.Title, metadata.PackageId, StringComparison.OrdinalIgnoreCase))
+            return metadata.Title;
+
+        return NamingHelpers.ToPackageDisplayName(metadata.PackageId);
     }
 
     private static FeatureManifest ToFeatureManifest(DiscoveredFeature feature) => new()
