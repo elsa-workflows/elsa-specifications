@@ -2,6 +2,7 @@ namespace Elsa.PackageManifest.Generator.Core.Generation;
 
 internal static class NamingHelpers
 {
+    // Keep in sync with the runtime catalog's PackageDisplayNamePolicy.DefaultForPackageId rule.
     private const string ElsaPackagePrefix = "Elsa.";
 
     public static string ToDisplayName(string value)
