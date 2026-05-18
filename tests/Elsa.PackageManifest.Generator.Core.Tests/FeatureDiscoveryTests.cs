@@ -308,7 +308,7 @@ public sealed class MessagingFeature : IShellFeature
         requirements.Keys.Should().BeEquivalentTo("broker", "cache");
         requirements["broker"].GetProperty("reason").GetString().Should().Be("Override source reason.");
         requirements["broker"].GetProperty("capabilities").EnumerateArray().Select(x => x.GetString()).Should().Contain("queues");
-        requirements["broker"].GetProperty("providers").EnumerateArray().Select(x => x.GetString()).Should().Contain("azure-service-bus");
+        requirements["broker"].GetProperty("providers").EnumerateArray().Select(x => x.GetString()).Should().BeEquivalentTo("rabbitmq", "azure-service-bus");
         requirements["broker"].GetProperty("configurationKeys").EnumerateArray().Select(x => x.GetString()).Should().Contain("Messaging:Broker");
         requirements["broker"].GetProperty("extensions").GetProperty("source").GetString().Should().Be("override");
         requirements["broker"].GetProperty("extensions").GetProperty("owner").GetString().Should().Be("platform");

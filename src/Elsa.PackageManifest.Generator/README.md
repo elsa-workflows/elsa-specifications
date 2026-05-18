@@ -23,6 +23,8 @@ Optional source-only hints are available under `Elsa.PackageManifest.Generator.H
 - `ManifestExtensionAttribute`
 - `ManifestInfrastructureAttribute`
 
+These hint attributes are intentionally shipped as source-only, internal types so consuming packages can use them without exposing generator APIs from their assemblies. `ManifestInfrastructureAttribute.Extensions` uses `key=value` strings; entries without a key before `=` are ignored.
+
 For metadata that cannot be inferred, add `elsa-package.overrides.json` beside the project file or set `ElsaPackageManifestOverrideFile`.
 
 Common MSBuild properties:

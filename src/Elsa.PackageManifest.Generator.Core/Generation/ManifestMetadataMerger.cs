@@ -112,16 +112,28 @@ public sealed class ManifestMetadataMerger
             var existing = result[index];
             result[index] = existing with
             {
-                Kind = string.IsNullOrWhiteSpace(requirement.Kind) ? existing.Kind : requirement.Kind,
+                Kind = requirement.Kind,
                 Optional = requirement.Optional ?? existing.Optional,
                 Reason = requirement.Reason ?? existing.Reason,
-                Capabilities = requirement.Capabilities ?? existing.Capabilities,
-                Providers = requirement.Providers ?? existing.Providers,
-                ConfigurationKeys = requirement.ConfigurationKeys ?? existing.ConfigurationKeys,
+                Capabilities = Merge(existing.Capabilities, requirement.Capabilities),
+                Providers = Merge(existing.Providers, requirement.Providers),
+                ConfigurationKeys = Merge(existing.ConfigurationKeys, requirement.ConfigurationKeys),
                 Extensions = Merge(existing.Extensions, requirement.Extensions)
             };
         }
 
         return result.OrderBy(x => x.Id, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private static IReadOnlyList<string> Merge(IReadOnlyList<string> first, IReadOnlyList<string>? second)
+    {
+        if (second is null)
+            return first;
+
+        return first
+            .Concat(second)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 }
