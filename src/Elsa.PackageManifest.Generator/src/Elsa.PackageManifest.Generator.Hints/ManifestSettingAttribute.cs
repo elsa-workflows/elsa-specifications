@@ -17,6 +17,8 @@ internal sealed class ManifestSettingAttribute : Attribute
     public bool Required { get; set; }
     public bool HasRequired { get; set; }
     public string? DefaultValue { get; set; }
+    public string? UIHint { get; set; }
+    [Obsolete("Use UIHint.")]
     public string? UiHint { get; set; }
     public bool Secret { get; set; }
     public bool Sensitive { get; set; }

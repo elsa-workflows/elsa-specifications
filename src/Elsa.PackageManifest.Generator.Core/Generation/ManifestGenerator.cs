@@ -186,21 +186,71 @@ public sealed class ManifestGenerator
         Validation = new Dictionary<string, object?>(setting.ValidationConstraints, StringComparer.OrdinalIgnoreCase),
         Secret = setting.Secret,
         RestartRequired = setting.RestartRequired,
-        Ui = MergeExtensions(null, new Dictionary<string, object?>
-        {
-            ["hint"] = setting.UiHint,
-            ["group"] = setting.Group,
-            ["advanced"] = setting.Advanced,
-            ["experimental"] = setting.Experimental
-        }),
+        UI = BuildSettingUI(setting),
         Extensions = MergeExtensions(setting.ExtensionMetadata, new Dictionary<string, object?>
         {
             ["configurationPath"] = setting.ConfigurationPath,
             ["nullable"] = setting.Nullable,
-            ["sensitive"] = setting.Sensitive,
-            ["enumValues"] = setting.EnumValues
+            ["sensitive"] = setting.Sensitive
         })
     };
+
+    private static Dictionary<string, object?> BuildSettingUI(DiscoveredSetting setting)
+    {
+        var values = MergeExtensions(null, new Dictionary<string, object?>
+        {
+            ["hint"] = setting.UIHint,
+            ["group"] = setting.Group,
+            ["advanced"] = setting.Advanced,
+            ["experimental"] = setting.Experimental
+        });
+
+        var options = BuildSettingUIOptions(setting);
+        if (options.Count > 0)
+            values["options"] = options;
+
+        return values;
+    }
+
+    private static Dictionary<string, object?> BuildSettingUIOptions(DiscoveredSetting setting)
+    {
+        if (!SupportsUIOptions(setting.UIHint))
+            return [];
+
+        if (setting.UIOptionsProvider is not null)
+        {
+            return MergeExtensions(null, new Dictionary<string, object?>
+            {
+                ["source"] = "provider",
+                ["provider"] = setting.UIOptionsProvider.Provider,
+                ["dependsOn"] = setting.UIOptionsProvider.DependsOn.Count > 0 ? setting.UIOptionsProvider.DependsOn : null,
+                ["parameters"] = setting.UIOptionsProvider.Parameters.Count > 0 ? setting.UIOptionsProvider.Parameters : null
+            });
+        }
+
+        if (setting.UIOptions.Count == 0)
+            return [];
+
+        return MergeExtensions(null, new Dictionary<string, object?>
+        {
+            ["source"] = "static",
+            ["items"] = setting.UIOptions.Select(ToUIOption).ToArray()
+        });
+    }
+
+    private static bool SupportsUIOptions(string? uiHint) =>
+        string.IsNullOrWhiteSpace(uiHint) ||
+        string.Equals(uiHint, "select-list", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(uiHint, "multi-select-list", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(uiHint, "radio-list", StringComparison.OrdinalIgnoreCase);
+
+    private static Dictionary<string, object?> ToUIOption(ManifestUIOptionReference option) =>
+        MergeExtensions(null, new Dictionary<string, object?>
+        {
+            ["value"] = option.Value,
+            ["label"] = option.Label,
+            ["description"] = option.Description
+        });
 
     private static DocumentationManifest? ToDocumentation(DocumentationOverride? documentation, string? projectUrl)
     {

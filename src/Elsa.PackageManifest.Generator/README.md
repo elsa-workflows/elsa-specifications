@@ -19,11 +19,15 @@ Multi-targeted package projects include exactly one canonical manifest by defaul
 Optional source-only hints are available under `Elsa.PackageManifest.Generator.Hints`:
 
 - `ManifestSettingAttribute`
+- `ManifestUIOptionAttribute`
+- `ManifestUIOptionsProviderAttribute`
 - `ManifestIgnoreAttribute`
 - `ManifestExtensionAttribute`
 - `ManifestInfrastructureAttribute`
 
 These hint attributes are intentionally shipped as source-only, internal types so consuming packages can use them without exposing generator APIs from their assemblies. `ManifestInfrastructureAttribute.Extensions` uses `key=value` strings; entries without a key before `=` are ignored.
+
+Enum settings emit validation enum values and default to `ui.hint = "select-list"` with static option items. Use `ManifestUIOptionAttribute` for custom static list values and `ManifestUIOptionsProviderAttribute` to reference a trusted Runtime Builder option provider for dynamic list values. Provider references are manifest data only; the generator does not execute package code to resolve options.
 
 For metadata that cannot be inferred, add `elsa-package.overrides.json` beside the project file or set `ElsaPackageManifestOverrideFile`.
 

@@ -67,12 +67,30 @@ internal sealed class ManifestSettingAttribute : Attribute
     public string? Group { get; set; }
     public bool Required { get; set; }
     public string? DefaultValue { get; set; }
+    public string? UIHint { get; set; }
+    [Obsolete("Use UIHint.")]
     public string? UiHint { get; set; }
     public bool Secret { get; set; }
     public bool Sensitive { get; set; }
     public bool RestartRequired { get; set; }
     public bool Advanced { get; set; }
     public bool Experimental { get; set; }
+}
+
+[AttributeUsage(AttributeTargets.Property, AllowMultiple = true, Inherited = false)]
+internal sealed class ManifestUIOptionAttribute(string value) : Attribute
+{
+    public string Value { get; } = value;
+    public string? Label { get; set; }
+    public string? Description { get; set; }
+}
+
+[AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
+internal sealed class ManifestUIOptionsProviderAttribute(string provider) : Attribute
+{
+    public string Provider { get; } = provider;
+    public string[] DependsOn { get; set; } = [];
+    public string[] Parameters { get; set; } = [];
 }
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property)]

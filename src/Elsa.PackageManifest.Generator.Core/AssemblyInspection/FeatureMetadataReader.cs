@@ -30,13 +30,47 @@ public sealed class FeatureMetadataReader
             FeatureTypeMatcher.ReadNamedString(hint, "Group"),
             FeatureTypeMatcher.ReadNamedBool(hint, "Required"),
             FeatureTypeMatcher.ReadNamedString(hint, "DefaultValue"),
-            FeatureTypeMatcher.ReadNamedString(hint, "UiHint"),
+            FeatureTypeMatcher.ReadNamedString(hint, "UIHint") ?? FeatureTypeMatcher.ReadNamedString(hint, "UiHint"),
             FeatureTypeMatcher.ReadNamedBool(hint, "Secret"),
             FeatureTypeMatcher.ReadNamedBool(hint, "Sensitive"),
             FeatureTypeMatcher.ReadNamedBool(hint, "RestartRequired"),
             FeatureTypeMatcher.ReadNamedBool(hint, "Advanced"),
             FeatureTypeMatcher.ReadNamedBool(hint, "Experimental"),
+            ReadUIOptions(property),
+            ReadUIOptionsProvider(property),
             ReadExtensions(property));
+    }
+
+    private static IReadOnlyList<ManifestUIOptionReference> ReadUIOptions(MemberInfo member)
+    {
+        return member.GetCustomAttributesData()
+            .Where(x => x.AttributeType.FullName == "Elsa.PackageManifest.Generator.Hints.ManifestUIOptionAttribute")
+            .Select(attribute => new ManifestUIOptionReference(
+                attribute.ConstructorArguments.Count > 0 ? attribute.ConstructorArguments[0].Value as string ?? "" : "",
+                FeatureTypeMatcher.ReadNamedString(attribute, "Label"),
+                FeatureTypeMatcher.ReadNamedString(attribute, "Description")))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+            .GroupBy(x => x.Value, StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.Last())
+            .OrderBy(x => x.Value, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static ManifestUIOptionsProviderReference? ReadUIOptionsProvider(MemberInfo member)
+    {
+        var attribute = member.GetCustomAttributesData()
+            .FirstOrDefault(x => x.AttributeType.FullName == "Elsa.PackageManifest.Generator.Hints.ManifestUIOptionsProviderAttribute");
+        if (attribute is null)
+            return null;
+
+        var provider = FeatureTypeMatcher.GetConstructorString(attribute);
+        if (string.IsNullOrWhiteSpace(provider))
+            return null;
+
+        return new ManifestUIOptionsProviderReference(
+            provider,
+            FeatureTypeMatcher.ReadNamedStringArray(attribute, "DependsOn"),
+            ReadExtensionPairs(FeatureTypeMatcher.ReadNamedStringArray(attribute, "Parameters")));
     }
 
     private static IReadOnlyDictionary<string, object?> ReadExtensions(MemberInfo member)
@@ -111,10 +145,12 @@ public sealed record SettingHintMetadata(
     string? Group,
     bool Required,
     string? DefaultValue,
-    string? UiHint,
+    string? UIHint,
     bool Secret,
     bool Sensitive,
     bool RestartRequired,
     bool Advanced,
     bool Experimental,
+    IReadOnlyList<ManifestUIOptionReference> UIOptions,
+    ManifestUIOptionsProviderReference? UIOptionsProvider,
     IReadOnlyDictionary<string, object?> Extensions);

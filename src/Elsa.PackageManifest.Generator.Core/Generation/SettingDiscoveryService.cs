@@ -57,7 +57,7 @@ public sealed class SettingDiscoveryService(
     {
         var hint = metadataReader.ReadSettingMetadata(property);
         var nullable = nullableMetadataReader.IsNullable(property);
-        var validation = validationAnnotationMapper.Map(property);
+        var validation = new Dictionary<string, object?>(validationAnnotationMapper.Map(property), StringComparer.OrdinalIgnoreCase);
         var schema = schemaGenerator.Generate(property.PropertyType, nullable, validation);
         if (IsUnsupportedSchema(schema))
         {
@@ -75,7 +75,16 @@ public sealed class SettingDiscoveryService(
         var enumValues = property.PropertyType.IsEnum
             ? Enum.GetNames(property.PropertyType).Order(StringComparer.Ordinal).ToArray()
             : [];
+        if (enumValues.Length > 0)
+            validation["enum"] = enumValues;
+
         var displayName = hint.DisplayName ?? NamingHelpers.ToDisplayName(property.Name);
+        var uiHint = hint.UIHint ?? (enumValues.Length > 0 || hint.UIOptions.Count > 0 || hint.UIOptionsProvider is not null ? "select-list" : null);
+        var uiOptions = hint.UIOptions.Count > 0
+            ? hint.UIOptions
+            : ShouldUseEnumUIOptions(enumValues, uiHint, hint.UIOptionsProvider)
+                ? enumValues.Select(x => new ManifestUIOptionReference(x, NamingHelpers.ToDisplayName(x), null)).ToArray()
+                : [];
 
         return new DiscoveredSetting(
             featureId,
@@ -96,7 +105,9 @@ public sealed class SettingDiscoveryService(
             hint.Secret,
             hint.Sensitive,
             hint.RestartRequired,
-            hint.UiHint,
+            uiHint,
+            uiOptions,
+            hint.UIOptionsProvider,
             hint.Advanced,
             hint.Experimental,
             hint.Extensions);
@@ -107,6 +118,19 @@ public sealed class SettingDiscoveryService(
         var clrType = property.PropertyType.FullName ?? property.PropertyType.Name;
         diagnostics?.Add(UnsupportedTypeDiagnosticFactory.Create(featureId, property.Name, clrType));
     }
+
+    private static bool ShouldUseEnumUIOptions(
+        IReadOnlyCollection<string> enumValues,
+        string? uiHint,
+        ManifestUIOptionsProviderReference? uiOptionsProvider) =>
+        enumValues.Count > 0 &&
+        uiOptionsProvider is null &&
+        IsOptionsUIHint(uiHint);
+
+    private static bool IsOptionsUIHint(string? uiHint) =>
+        string.Equals(uiHint, "select-list", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(uiHint, "multi-select-list", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(uiHint, "radio-list", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsUnsupportedSchema(SettingSchemaResult schema) =>
         string.Equals(schema.JsonType, "unsupported", StringComparison.OrdinalIgnoreCase);

@@ -82,10 +82,19 @@ public sealed record DiscoveredSetting(
     bool Secret,
     bool Sensitive,
     bool RestartRequired,
-    string? UiHint,
+    string? UIHint,
+    IReadOnlyList<ManifestUIOptionReference> UIOptions,
+    ManifestUIOptionsProviderReference? UIOptionsProvider,
     bool Advanced,
     bool Experimental,
     IReadOnlyDictionary<string, object?> ExtensionMetadata);
+
+public sealed record ManifestUIOptionReference(string Value, string? Label, string? Description);
+
+public sealed record ManifestUIOptionsProviderReference(
+    string Provider,
+    IReadOnlyList<string> DependsOn,
+    IReadOnlyDictionary<string, object?> Parameters);
 
 public sealed record ManifestDependencyReference(string? PackageId, string? VersionRange, string? FeatureId);
 
