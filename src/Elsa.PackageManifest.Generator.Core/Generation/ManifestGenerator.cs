@@ -223,8 +223,8 @@ public sealed class ManifestGenerator
             {
                 ["source"] = "provider",
                 ["provider"] = setting.UIOptionsProvider.Provider,
-                ["dependsOn"] = setting.UIOptionsProvider.DependsOn,
-                ["parameters"] = setting.UIOptionsProvider.Parameters
+                ["dependsOn"] = setting.UIOptionsProvider.DependsOn.Count > 0 ? setting.UIOptionsProvider.DependsOn : null,
+                ["parameters"] = setting.UIOptionsProvider.Parameters.Count > 0 ? setting.UIOptionsProvider.Parameters : null
             });
         }
 
@@ -239,6 +239,7 @@ public sealed class ManifestGenerator
     }
 
     private static bool SupportsUIOptions(string? uiHint) =>
+        string.IsNullOrWhiteSpace(uiHint) ||
         string.Equals(uiHint, "select-list", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(uiHint, "multi-select-list", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(uiHint, "radio-list", StringComparison.OrdinalIgnoreCase);

@@ -79,7 +79,7 @@ public sealed class SettingDiscoveryService(
             validation["enum"] = enumValues;
 
         var displayName = hint.DisplayName ?? NamingHelpers.ToDisplayName(property.Name);
-        var uiHint = hint.UIHint ?? (enumValues.Length > 0 ? "select-list" : null);
+        var uiHint = hint.UIHint ?? (enumValues.Length > 0 || hint.UIOptions.Count > 0 || hint.UIOptionsProvider is not null ? "select-list" : null);
         var uiOptions = hint.UIOptions.Count > 0
             ? hint.UIOptions
             : ShouldUseEnumUIOptions(enumValues, uiHint, hint.UIOptionsProvider)

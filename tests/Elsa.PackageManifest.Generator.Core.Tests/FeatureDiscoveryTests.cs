@@ -258,6 +258,9 @@ public sealed class SearchFeature : IShellFeature
     [ManifestSetting(UIHint = "select-list")]
     [ManifestUIOptionsProvider("elsa.catalog.package-source-options", DependsOn = new[] { "WorkspaceId", "TenantId", "tenantid" }, Parameters = new[] { "kind=nuget-source" })]
     public string PackageSource { get; set; } = "";
+
+    [ManifestUIOptionsProvider("elsa.catalog.package-type-options")]
+    public string PackageType { get; set; } = "";
 }
 """);
 
@@ -285,6 +288,51 @@ public sealed class SearchFeature : IShellFeature
         providerOptions.GetProperty("provider").GetString().Should().Be("elsa.catalog.package-source-options");
         providerOptions.GetProperty("dependsOn").EnumerateArray().Select(x => x.GetString()).Should().Equal("TenantId", "WorkspaceId");
         providerOptions.GetProperty("parameters").GetProperty("kind").GetString().Should().Be("nuget-source");
+
+        var inferredProviderUI = settings["PackageType"].GetProperty("ui");
+        inferredProviderUI.GetProperty("hint").GetString().Should().Be("select-list");
+        var inferredProviderOptions = inferredProviderUI.GetProperty("options");
+        inferredProviderOptions.GetProperty("source").GetString().Should().Be("provider");
+        inferredProviderOptions.GetProperty("provider").GetString().Should().Be("elsa.catalog.package-type-options");
+        inferredProviderOptions.TryGetProperty("dependsOn", out _).Should().BeFalse();
+        inferredProviderOptions.TryGetProperty("parameters", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Generate_defaults_provider_ui_hint_for_string_setting()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.PackageManifest.Generator.Hints;
+
+namespace Sample.Features;
+
+[ShellFeature("Search", DisplayName = "Search")]
+public sealed class SearchFeature : IShellFeature
+{
+    [ManifestUIOptionsProvider("elsa.catalog.package-source-options")]
+    public string PackageSource { get; set; } = "";
+}
+""");
+
+        var build = await project.BuildAsync();
+        build.ExitCode.Should().Be(0, build.CombinedOutput);
+
+        var result = Generate(project);
+        result.diagnostics.Items.Where(x => x.Severity == GenerationDiagnosticSeverity.Error).Should().BeEmpty();
+
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+        var ui = document.RootElement.GetProperty("features")[0]
+            .GetProperty("settings")[0]
+            .GetProperty("ui");
+
+        ui.GetProperty("hint").GetString().Should().Be("select-list");
+        var options = ui.GetProperty("options");
+        options.GetProperty("source").GetString().Should().Be("provider");
+        options.GetProperty("provider").GetString().Should().Be("elsa.catalog.package-source-options");
+        options.TryGetProperty("dependsOn", out _).Should().BeFalse();
+        options.TryGetProperty("parameters", out _).Should().BeFalse();
     }
 
     [Fact]
