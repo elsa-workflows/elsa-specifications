@@ -197,6 +197,125 @@ public sealed class RabbitMqFeature : IShellFeature
         requirement.GetProperty("configurationKeys").EnumerateArray().Select(x => x.GetString()).Should().Contain("RabbitMq:ConnectionString");
     }
 
+    [Fact]
+    public async Task Generate_discovers_infrastructure_requirements_from_manifest_hints()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.PackageManifest.Generator.Hints;
+
+namespace Sample.Features;
+
+[ShellFeature("Postgres", DisplayName = "Postgres Persistence")]
+[ManifestInfrastructure(
+    "database",
+    "database",
+    Optional = true,
+    Reason = "Stores workflow instances.",
+    Capabilities = new[] { "transactions", "json" },
+    Providers = new[] { "postgres", "sql-server" },
+    ConfigurationKeys = new[] { "Postgres:ConnectionString" },
+    Extensions = new[] { "tier=stateful" })]
+public sealed class PostgresFeature : IShellFeature
+{
+}
+""");
+
+        var build = await project.BuildAsync();
+        build.ExitCode.Should().Be(0, build.CombinedOutput);
+
+        var result = Generate(project);
+        result.diagnostics.Items.Where(x => x.Severity == GenerationDiagnosticSeverity.Error).Should().BeEmpty();
+
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+        var requirement = document.RootElement
+            .GetProperty("features")[0]
+            .GetProperty("infrastructure")[0];
+
+        requirement.GetProperty("id").GetString().Should().Be("database");
+        requirement.GetProperty("kind").GetString().Should().Be("database");
+        requirement.GetProperty("optional").GetBoolean().Should().BeTrue();
+        requirement.GetProperty("reason").GetString().Should().Be("Stores workflow instances.");
+        requirement.GetProperty("capabilities").EnumerateArray().Select(x => x.GetString()).Should().BeEquivalentTo("transactions", "json");
+        requirement.GetProperty("providers").EnumerateArray().Select(x => x.GetString()).Should().BeEquivalentTo("postgres", "sql-server");
+        requirement.GetProperty("configurationKeys").EnumerateArray().Select(x => x.GetString()).Should().Contain("Postgres:ConnectionString");
+        requirement.GetProperty("extensions").GetProperty("tier").GetString().Should().Be("stateful");
+    }
+
+    [Fact]
+    public async Task Generate_merges_override_infrastructure_with_manifest_hints_by_id()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.PackageManifest.Generator.Hints;
+
+namespace Sample.Features;
+
+[ShellFeature("Messaging", DisplayName = "Messaging")]
+[ManifestInfrastructure(
+    "broker",
+    "message-broker",
+    Reason = "Default source reason.",
+    Capabilities = new[] { "queues" },
+    Providers = new[] { "rabbitmq" },
+    ConfigurationKeys = new[] { "Messaging:Broker" },
+    Extensions = new[] { "source=attribute" })]
+public sealed class MessagingFeature : IShellFeature
+{
+}
+""");
+
+        var build = await project.BuildAsync();
+        build.ExitCode.Should().Be(0, build.CombinedOutput);
+        var overridePath = Path.Combine(project.ProjectDirectory, "elsa-package.overrides.json");
+        await File.WriteAllTextAsync(overridePath, """
+{
+  "features": [
+    {
+      "id": "Sample.Elsa.Package.Messaging",
+      "infrastructure": [
+        {
+          "id": "broker",
+          "kind": "message-broker",
+          "reason": "Override source reason.",
+          "providers": ["azure-service-bus"],
+          "extensions": { "source": "override", "owner": "platform" }
+        },
+        {
+          "id": "cache",
+          "kind": "cache",
+          "optional": true,
+          "providers": ["redis"]
+        }
+      ]
+    }
+  ]
+}
+""");
+
+        var result = Generate(project, overridePath);
+        result.diagnostics.Items.Where(x => x.Severity == GenerationDiagnosticSeverity.Error).Should().BeEmpty();
+
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+        var requirements = document.RootElement
+            .GetProperty("features")[0]
+            .GetProperty("infrastructure")
+            .EnumerateArray()
+            .ToDictionary(x => x.GetProperty("id").GetString()!);
+
+        requirements.Keys.Should().BeEquivalentTo("broker", "cache");
+        requirements["broker"].GetProperty("reason").GetString().Should().Be("Override source reason.");
+        requirements["broker"].GetProperty("capabilities").EnumerateArray().Select(x => x.GetString()).Should().Contain("queues");
+        requirements["broker"].GetProperty("providers").EnumerateArray().Select(x => x.GetString()).Should().Contain("azure-service-bus");
+        requirements["broker"].GetProperty("configurationKeys").EnumerateArray().Select(x => x.GetString()).Should().Contain("Messaging:Broker");
+        requirements["broker"].GetProperty("extensions").GetProperty("source").GetString().Should().Be("override");
+        requirements["broker"].GetProperty("extensions").GetProperty("owner").GetString().Should().Be("platform");
+        requirements["cache"].GetProperty("optional").GetBoolean().Should().BeTrue();
+        requirements["cache"].GetProperty("providers").EnumerateArray().Select(x => x.GetString()).Should().Contain("redis");
+    }
+
     private static (GeneratedManifestArtifact artifact, GenerationDiagnostics diagnostics) Generate(
         SampleProjectBuilder project,
         string? overridePath = null,

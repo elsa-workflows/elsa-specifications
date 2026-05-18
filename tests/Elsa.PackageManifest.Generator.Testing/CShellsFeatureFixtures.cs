@@ -59,7 +59,7 @@ using System;
 namespace Elsa.PackageManifest.Generator.Hints;
 
 [AttributeUsage(AttributeTargets.Property)]
-public sealed class ManifestSettingAttribute : Attribute
+internal sealed class ManifestSettingAttribute : Attribute
 {
     public string? DisplayName { get; set; }
     public string? Description { get; set; }
@@ -76,13 +76,26 @@ public sealed class ManifestSettingAttribute : Attribute
 }
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property)]
-public sealed class ManifestIgnoreAttribute : Attribute;
+internal sealed class ManifestIgnoreAttribute : Attribute;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property, AllowMultiple = true)]
-public sealed class ManifestExtensionAttribute(string key, string value) : Attribute
+internal sealed class ManifestExtensionAttribute(string key, string value) : Attribute
 {
     public string Key { get; } = key;
     public string Value { get; } = value;
+}
+
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+internal sealed class ManifestInfrastructureAttribute(string id, string kind) : Attribute
+{
+    public string Id { get; } = id;
+    public string Kind { get; } = kind;
+    public bool Optional { get; set; }
+    public string? Reason { get; set; }
+    public string[] Capabilities { get; set; } = [];
+    public string[] Providers { get; set; } = [];
+    public string[] ConfigurationKeys { get; set; } = [];
+    public string[] Extensions { get; set; } = [];
 }
 """;
 }

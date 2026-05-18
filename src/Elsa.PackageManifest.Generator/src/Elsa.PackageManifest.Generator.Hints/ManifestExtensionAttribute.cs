@@ -8,7 +8,7 @@ namespace Elsa.PackageManifest.Generator.Hints;
 /// Supplies a small string extension metadata value for manifest generation.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property, AllowMultiple = true, Inherited = false)]
-public sealed class ManifestExtensionAttribute(string key, string value) : Attribute
+internal sealed class ManifestExtensionAttribute(string key, string value) : Attribute
 {
     public string Key { get; } = key;
     public string Value { get; } = value;

@@ -49,7 +49,7 @@ public sealed class ManifestMetadataMerger
                 Dependencies = featureOverride.Dependencies?.Select(ToDependencyReference).ToArray() ?? feature.Dependencies,
                 Conflicts = featureOverride.Conflicts?.Select(ToConflictReference).ToArray() ?? feature.Conflicts,
                 RequiredCapabilities = featureOverride.RequiredCapabilities ?? feature.RequiredCapabilities,
-                Infrastructure = featureOverride.Infrastructure?.Select(ToInfrastructureRequirementReference).ToArray() ?? feature.Infrastructure,
+                Infrastructure = MergeInfrastructure(feature.Infrastructure, featureOverride.Infrastructure),
                 ExtensionMetadata = Merge(feature.ExtensionMetadata, featureOverride.Extensions),
                 Settings = settings
             };
@@ -91,4 +91,37 @@ public sealed class ManifestMetadataMerger
             requirement.Providers ?? [],
             requirement.ConfigurationKeys ?? [],
             requirement.Extensions ?? new Dictionary<string, object?>());
+
+    private static IReadOnlyList<ManifestInfrastructureRequirementReference> MergeInfrastructure(
+        IReadOnlyList<ManifestInfrastructureRequirementReference> first,
+        IReadOnlyList<InfrastructureRequirementOverride>? second)
+    {
+        if (second is null)
+            return first;
+
+        var result = first.ToList();
+        foreach (var requirement in second)
+        {
+            var index = result.FindIndex(x => string.Equals(x.Id, requirement.Id, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+            {
+                result.Add(ToInfrastructureRequirementReference(requirement));
+                continue;
+            }
+
+            var existing = result[index];
+            result[index] = existing with
+            {
+                Kind = string.IsNullOrWhiteSpace(requirement.Kind) ? existing.Kind : requirement.Kind,
+                Optional = requirement.Optional ?? existing.Optional,
+                Reason = requirement.Reason ?? existing.Reason,
+                Capabilities = requirement.Capabilities ?? existing.Capabilities,
+                Providers = requirement.Providers ?? existing.Providers,
+                ConfigurationKeys = requirement.ConfigurationKeys ?? existing.ConfigurationKeys,
+                Extensions = Merge(existing.Extensions, requirement.Extensions)
+            };
+        }
+
+        return result.OrderBy(x => x.Id, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
 }

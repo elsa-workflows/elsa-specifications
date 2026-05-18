@@ -21,6 +21,7 @@ Optional source-only hints are available under `Elsa.PackageManifest.Generator.H
 - `ManifestSettingAttribute`
 - `ManifestIgnoreAttribute`
 - `ManifestExtensionAttribute`
+- `ManifestInfrastructureAttribute`
 
 For metadata that cannot be inferred, add `elsa-package.overrides.json` beside the project file or set `ElsaPackageManifestOverrideFile`.
 

@@ -7,6 +7,7 @@ namespace Elsa.PackageManifest.Generator.Core.Overrides;
 public sealed class ManifestOverrideReader
 {
     public const long MaxOverrideBytes = 262_144;
+    private static readonly Lazy<JsonSchema> OverrideSchema = new(() => JsonSchema.FromText(ReadSchemaJson()));
 
     public ManifestOverride? Read(string? path)
     {
@@ -24,10 +25,8 @@ public sealed class ManifestOverrideReader
 
     private static void ValidateSchema(string json)
     {
-        var schemaJson = ReadSchemaJson();
-        var schema = JsonSchema.FromText(schemaJson);
         using var document = JsonDocument.Parse(json);
-        var results = schema.Evaluate(document.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+        var results = OverrideSchema.Value.Evaluate(document.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
 
         if (results.IsValid)
             return;
