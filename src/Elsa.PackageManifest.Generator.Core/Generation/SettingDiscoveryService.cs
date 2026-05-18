@@ -65,8 +65,13 @@ public sealed class SettingDiscoveryService(
             return null;
         }
 
-        var defaultValue = defaultValueResolver.Resolve(property, hint.DefaultValue);
-        var required = hint.Required || validation.ContainsKey("required") || (!nullable && defaultValue is null);
+        var explicitRequired = hint.Required || validation.ContainsKey("required");
+        var resolvedDefaultValue = defaultValueResolver.Resolve(property, hint.DefaultValue);
+        var defaultValue = resolvedDefaultValue.Value;
+        if (explicitRequired && resolvedDefaultValue.Inferred && TypeMetadataHelpers.IsNonNullableBoolean(property.PropertyType))
+            defaultValue = null;
+
+        var required = explicitRequired || (!nullable && defaultValue is null);
         var enumValues = property.PropertyType.IsEnum
             ? Enum.GetNames(property.PropertyType).Order(StringComparer.Ordinal).ToArray()
             : [];

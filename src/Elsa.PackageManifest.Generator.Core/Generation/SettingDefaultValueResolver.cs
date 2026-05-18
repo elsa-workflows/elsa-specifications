@@ -6,18 +6,21 @@ namespace Elsa.PackageManifest.Generator.Core.Generation;
 
 public sealed class SettingDefaultValueResolver
 {
-    public object? Resolve(PropertyInfo property, string? hintDefaultValue)
+    public ResolvedSettingDefaultValue Resolve(PropertyInfo property, string? hintDefaultValue)
     {
         if (!string.IsNullOrWhiteSpace(hintDefaultValue))
-            return ConvertString(hintDefaultValue, property.PropertyType);
+            return new ResolvedSettingDefaultValue(ConvertString(hintDefaultValue, property.PropertyType), false);
 
         var defaultValueAttribute = property.GetCustomAttributesData()
             .FirstOrDefault(x => x.AttributeType.FullName == "System.ComponentModel.DefaultValueAttribute");
 
         if (defaultValueAttribute?.ConstructorArguments.Count > 0)
-            return defaultValueAttribute.ConstructorArguments[0].Value;
+            return new ResolvedSettingDefaultValue(defaultValueAttribute.ConstructorArguments[0].Value, false);
 
-        return null;
+        if (TypeMetadataHelpers.IsNonNullableBoolean(property.PropertyType))
+            return new ResolvedSettingDefaultValue(false, true);
+
+        return new ResolvedSettingDefaultValue(null, false);
     }
 
     private static object? ConvertString(string value, Type targetType)
@@ -42,3 +45,5 @@ public sealed class SettingDefaultValueResolver
 
     private static bool IsClrType(Type type, string fullName) => string.Equals(type.FullName, fullName, StringComparison.Ordinal);
 }
+
+public sealed record ResolvedSettingDefaultValue(object? Value, bool Inferred);
