@@ -19,27 +19,31 @@ public sealed class ManifestMetadataMerger
             var settings = feature.Settings.Select(setting =>
             {
                 var settingOverride = featureOverride.Settings?.FirstOrDefault(x => string.Equals(x.Name, setting.Name, StringComparison.OrdinalIgnoreCase));
-                return settingOverride is null
-                    ? setting
-                    : setting with
-                    {
-                        DisplayName = settingOverride.DisplayName ?? setting.DisplayName,
-                        Description = settingOverride.Description ?? setting.Description,
-                        Category = settingOverride.Category ?? setting.Category,
-                        Group = settingOverride.Group ?? setting.Group,
-                        Required = settingOverride.Required ?? setting.Required,
-                        Nullable = settingOverride.Nullable ?? setting.Nullable,
-                        DefaultValue = settingOverride.DefaultValue ?? setting.DefaultValue,
-                        Secret = settingOverride.Secret ?? setting.Secret,
-                        Sensitive = settingOverride.Sensitive ?? setting.Sensitive,
-                        RestartRequired = settingOverride.RestartRequired ?? setting.RestartRequired,
-                        UIHint = settingOverride.UIHint ?? ResolveUIHint(settingOverride.UI) ?? setting.UIHint,
-                        UIOptions = ResolveUIOptions(setting.UIOptions, settingOverride.UI),
-                        UIOptionsProvider = ResolveUIOptionsProvider(setting.UIOptionsProvider, settingOverride.UI),
-                        Advanced = settingOverride.Advanced ?? setting.Advanced,
-                        Experimental = settingOverride.Experimental ?? setting.Experimental,
-                        ExtensionMetadata = Merge(setting.ExtensionMetadata, settingOverride.Extensions)
-                    };
+                if (settingOverride is null)
+                    return setting;
+
+                var structuredUIHint = ResolveUIHint(settingOverride.UI);
+                var uiHint = settingOverride.UIHint ?? structuredUIHint ?? setting.UIHint;
+                var hasUIHintOverride = settingOverride.UIHint is not null || structuredUIHint is not null;
+                return setting with
+                {
+                    DisplayName = settingOverride.DisplayName ?? setting.DisplayName,
+                    Description = settingOverride.Description ?? setting.Description,
+                    Category = settingOverride.Category ?? setting.Category,
+                    Group = settingOverride.Group ?? setting.Group,
+                    Required = settingOverride.Required ?? setting.Required,
+                    Nullable = settingOverride.Nullable ?? setting.Nullable,
+                    DefaultValue = settingOverride.DefaultValue ?? setting.DefaultValue,
+                    Secret = settingOverride.Secret ?? setting.Secret,
+                    Sensitive = settingOverride.Sensitive ?? setting.Sensitive,
+                    RestartRequired = settingOverride.RestartRequired ?? setting.RestartRequired,
+                    UIHint = uiHint,
+                    UIOptions = ResolveUIOptions(setting.UIOptions, settingOverride.UI, uiHint, hasUIHintOverride),
+                    UIOptionsProvider = ResolveUIOptionsProvider(setting.UIOptionsProvider, settingOverride.UI, uiHint, hasUIHintOverride),
+                    Advanced = settingOverride.Advanced ?? setting.Advanced,
+                    Experimental = settingOverride.Experimental ?? setting.Experimental,
+                    ExtensionMetadata = Merge(setting.ExtensionMetadata, settingOverride.Extensions)
+                };
             }).ToArray();
 
             return feature with
@@ -73,10 +77,12 @@ public sealed class ManifestMetadataMerger
 
     private static IReadOnlyList<ManifestUIOptionReference> ResolveUIOptions(
         IReadOnlyList<ManifestUIOptionReference> current,
-        JsonElement? ui)
+        JsonElement? ui,
+        string? uiHint,
+        bool hasUIHintOverride)
     {
         if (!TryReadOptions(ui, out var options))
-            return current;
+            return hasUIHintOverride && !IsOptionsUIHint(uiHint) ? [] : current;
 
         if (!TryReadString(options, "source", out var source))
             source = "static";
@@ -105,10 +111,12 @@ public sealed class ManifestMetadataMerger
 
     private static ManifestUIOptionsProviderReference? ResolveUIOptionsProvider(
         ManifestUIOptionsProviderReference? current,
-        JsonElement? ui)
+        JsonElement? ui,
+        string? uiHint,
+        bool hasUIHintOverride)
     {
         if (!TryReadOptions(ui, out var options))
-            return current;
+            return hasUIHintOverride && !IsOptionsUIHint(uiHint) ? null : current;
 
         if (!TryReadString(options, "source", out var source) || !string.Equals(source, "provider", StringComparison.OrdinalIgnoreCase))
             return null;
@@ -138,6 +146,12 @@ public sealed class ManifestMetadataMerger
 
         return TryReadProperty(ui.Value, "options", out options) && options.ValueKind == JsonValueKind.Object;
     }
+
+    private static bool IsOptionsUIHint(string? uiHint) =>
+        string.IsNullOrWhiteSpace(uiHint) ||
+        string.Equals(uiHint, "select-list", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(uiHint, "multi-select-list", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(uiHint, "radio-list", StringComparison.OrdinalIgnoreCase);
 
     private static bool TryReadProperty(JsonElement values, string key, out JsonElement result)
     {

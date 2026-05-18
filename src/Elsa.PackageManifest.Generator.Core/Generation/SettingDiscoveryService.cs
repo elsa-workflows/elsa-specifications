@@ -125,7 +125,12 @@ public sealed class SettingDiscoveryService(
         ManifestUIOptionsProviderReference? uiOptionsProvider) =>
         enumValues.Count > 0 &&
         uiOptionsProvider is null &&
-        string.Equals(uiHint, "select-list", StringComparison.OrdinalIgnoreCase);
+        IsOptionsUIHint(uiHint);
+
+    private static bool IsOptionsUIHint(string? uiHint) =>
+        string.Equals(uiHint, "select-list", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(uiHint, "multi-select-list", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(uiHint, "radio-list", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsUnsupportedSchema(SettingSchemaResult schema) =>
         string.Equals(schema.JsonType, "unsupported", StringComparison.OrdinalIgnoreCase);

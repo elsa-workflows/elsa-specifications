@@ -409,6 +409,63 @@ public sealed class SearchFeature : IShellFeature
     }
 
     [Fact]
+    public async Task Generate_clears_enum_ui_options_when_legacy_override_sets_non_list_hint()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+
+namespace Sample.Features;
+
+[ShellFeature("Storage", DisplayName = "Storage")]
+public sealed class StorageFeature : IShellFeature
+{
+    public StorageProvider Provider { get; set; }
+}
+
+public enum StorageProvider
+{
+    Sqlite,
+    SqlServer,
+    Postgres
+}
+""");
+
+        var build = await project.BuildAsync();
+        build.ExitCode.Should().Be(0, build.CombinedOutput);
+        var overridePath = Path.Combine(project.ProjectDirectory, "elsa-package.overrides.json");
+        await File.WriteAllTextAsync(overridePath, """
+{
+  "features": [
+    {
+      "id": "Sample.Elsa.Package.Storage",
+      "settings": [
+        {
+          "name": "Provider",
+          "uiHint": "text"
+        }
+      ]
+    }
+  ]
+}
+""");
+
+        var result = Generate(project, overridePath);
+        result.diagnostics.Items.Where(x => x.Severity == GenerationDiagnosticSeverity.Error).Should().BeEmpty();
+
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+        var setting = document.RootElement
+            .GetProperty("features")[0]
+            .GetProperty("settings")[0];
+
+        setting.GetProperty("validation").GetProperty("enum").EnumerateArray().Select(x => x.GetString()).Should()
+            .Equal("Postgres", "SqlServer", "Sqlite");
+        var ui = setting.GetProperty("ui");
+        ui.GetProperty("hint").GetString().Should().Be("text");
+        ui.TryGetProperty("options", out _).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Generate_applies_infrastructure_requirements_from_override_file()
     {
         await using var project = new SampleProjectBuilder()
