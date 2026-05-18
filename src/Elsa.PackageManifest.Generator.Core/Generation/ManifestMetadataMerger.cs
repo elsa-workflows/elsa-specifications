@@ -96,7 +96,7 @@ public sealed class ManifestMetadataMerger
         IReadOnlyList<ManifestInfrastructureRequirementReference> first,
         IReadOnlyList<InfrastructureRequirementOverride>? second)
     {
-        if (second is null)
+        if (second is null || second.Count == 0)
             return first;
 
         var result = first.ToList();

@@ -85,7 +85,7 @@ internal sealed class ManifestExtensionAttribute(string key, string value) : Att
     public string Value { get; } = value;
 }
 
-[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
 internal sealed class ManifestInfrastructureAttribute(string id, string kind) : Attribute
 {
     public string Id { get; } = id;
