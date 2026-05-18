@@ -13,9 +13,9 @@ public sealed class SettingDiscoveryTests
     {
         var result = await GenerateAsync(CShellsFeatureFixtures.DelegateHooksFeatureSource);
 
-        result.Settings.Should().Contain("Endpoint");
-        result.Settings.Should().NotContain("Configure");
-        result.Settings.Should().NotContain("ServiceFactory");
+        result.Settings.Keys.Should().Contain("Endpoint");
+        result.Settings.Keys.Should().NotContain("Configure");
+        result.Settings.Keys.Should().NotContain("ServiceFactory");
     }
 
     [Fact]
@@ -23,7 +23,7 @@ public sealed class SettingDiscoveryTests
     {
         var result = await GenerateAsync(CShellsFeatureFixtures.DelegateHooksFeatureSource);
 
-        result.Settings.Should().NotContain("ConfigureHttpClient");
+        result.Settings.Keys.Should().NotContain("ConfigureHttpClient");
     }
 
     [Fact]
@@ -46,7 +46,43 @@ public sealed class DelegateCollectionsFeature : IShellFeature
 }
 """);
 
-        result.Settings.Should().Equal("Name");
+        result.Settings.Keys.Should().Equal("Name");
+    }
+
+    [Fact]
+    public async Task Generate_treats_non_nullable_boolean_settings_as_optional_with_false_default()
+    {
+        var result = await GenerateAsync("""
+#nullable enable
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using CShells.Features;
+
+namespace Sample.Features;
+
+[ShellFeature("BooleanSettings")]
+public sealed class BooleanSettingsFeature : IShellFeature
+{
+    public bool Enabled { get; set; }
+
+    [DefaultValue(true)]
+    public bool StartEnabled { get; set; }
+
+    [Required]
+    public bool ExplicitlyRequired { get; set; }
+
+    public bool? OptionalFlag { get; set; }
+}
+""");
+
+        result.Settings["Enabled"].GetProperty("required").GetBoolean().Should().BeFalse();
+        result.Settings["Enabled"].GetProperty("defaultValue").GetBoolean().Should().BeFalse();
+        result.Settings["StartEnabled"].GetProperty("required").GetBoolean().Should().BeFalse();
+        result.Settings["StartEnabled"].GetProperty("defaultValue").GetBoolean().Should().BeTrue();
+        result.Settings["ExplicitlyRequired"].GetProperty("required").GetBoolean().Should().BeTrue();
+        result.Settings["ExplicitlyRequired"].TryGetProperty("defaultValue", out _).Should().BeFalse();
+        result.Settings["OptionalFlag"].GetProperty("required").GetBoolean().Should().BeFalse();
+        result.Settings["OptionalFlag"].TryGetProperty("defaultValue", out _).Should().BeFalse();
     }
 
     private static async Task<GeneratedSettingsResult> GenerateAsync(string source, string diagnosticsVerbosity = "concise")
@@ -66,11 +102,10 @@ public sealed class DelegateCollectionsFeature : IShellFeature
         var settings = document.RootElement.GetProperty("features")[0]
             .GetProperty("settings")
             .EnumerateArray()
-            .Select(x => x.GetProperty("name").GetString()!)
-            .ToArray();
+            .ToDictionary(x => x.GetProperty("name").GetString()!, x => x.Clone());
 
         return new GeneratedSettingsResult(settings, diagnostics);
     }
 
-    private sealed record GeneratedSettingsResult(IReadOnlyList<string> Settings, GenerationDiagnostics Diagnostics);
+    private sealed record GeneratedSettingsResult(IReadOnlyDictionary<string, JsonElement> Settings, GenerationDiagnostics Diagnostics);
 }

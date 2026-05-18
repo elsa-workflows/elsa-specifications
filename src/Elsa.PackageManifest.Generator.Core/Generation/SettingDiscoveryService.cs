@@ -65,8 +65,12 @@ public sealed class SettingDiscoveryService(
             return null;
         }
 
+        var explicitRequired = hint.Required || validation.ContainsKey("required");
         var defaultValue = defaultValueResolver.Resolve(property, hint.DefaultValue);
-        var required = hint.Required || validation.ContainsKey("required") || (!nullable && defaultValue is null);
+        if (explicitRequired && !HasExplicitDefaultValue(property, hint.DefaultValue) && TypeMetadataHelpers.IsNonNullableBoolean(property.PropertyType))
+            defaultValue = null;
+
+        var required = explicitRequired || (!nullable && defaultValue is null);
         var enumValues = property.PropertyType.IsEnum
             ? Enum.GetNames(property.PropertyType).Order(StringComparer.Ordinal).ToArray()
             : [];
@@ -105,4 +109,8 @@ public sealed class SettingDiscoveryService(
 
     private static bool IsUnsupportedSchema(SettingSchemaResult schema) =>
         string.Equals(schema.JsonType, "unsupported", StringComparison.OrdinalIgnoreCase);
+
+    private static bool HasExplicitDefaultValue(PropertyInfo property, string? hintDefaultValue) =>
+        !string.IsNullOrWhiteSpace(hintDefaultValue) ||
+        property.GetCustomAttributesData().Any(x => x.AttributeType.FullName == "System.ComponentModel.DefaultValueAttribute");
 }

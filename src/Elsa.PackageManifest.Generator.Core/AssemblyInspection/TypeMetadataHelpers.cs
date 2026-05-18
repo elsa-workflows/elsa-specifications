@@ -9,6 +9,10 @@ internal static class TypeMetadataHelpers
         type is { IsValueType: true, IsGenericType: true } &&
         string.Equals(type.GetGenericTypeDefinition().FullName, "System.Nullable`1", StringComparison.Ordinal);
 
+    public static bool IsNonNullableBoolean(Type type) =>
+        string.Equals(type.FullName, "System.Boolean", StringComparison.Ordinal) &&
+        !IsNullableValueType(type);
+
     public static bool IsDelegateOrContainsDelegate(Type type)
     {
         var visited = new HashSet<Type>();

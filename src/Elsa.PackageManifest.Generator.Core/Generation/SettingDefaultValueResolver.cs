@@ -17,6 +17,9 @@ public sealed class SettingDefaultValueResolver
         if (defaultValueAttribute?.ConstructorArguments.Count > 0)
             return defaultValueAttribute.ConstructorArguments[0].Value;
 
+        if (TypeMetadataHelpers.IsNonNullableBoolean(property.PropertyType))
+            return false;
+
         return null;
     }
 
