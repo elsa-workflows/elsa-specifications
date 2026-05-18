@@ -78,7 +78,10 @@ public sealed class ManifestMetadataMerger
         if (!TryReadOptions(ui, out var options))
             return current;
 
-        if (!TryReadString(options, "source", out var source) || !string.Equals(source, "static", StringComparison.OrdinalIgnoreCase))
+        if (!TryReadString(options, "source", out var source))
+            source = "static";
+
+        if (!string.Equals(source, "static", StringComparison.OrdinalIgnoreCase))
             return [];
 
         if (!TryReadProperty(options, "items", out var items) || items.ValueKind != JsonValueKind.Array)

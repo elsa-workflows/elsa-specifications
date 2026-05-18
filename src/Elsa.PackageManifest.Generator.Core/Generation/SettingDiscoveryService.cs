@@ -82,7 +82,9 @@ public sealed class SettingDiscoveryService(
         var uiHint = hint.UIHint ?? (enumValues.Length > 0 ? "select-list" : null);
         var uiOptions = hint.UIOptions.Count > 0
             ? hint.UIOptions
-            : enumValues.Select(x => new ManifestUIOptionReference(x, NamingHelpers.ToDisplayName(x), null)).ToArray();
+            : ShouldUseEnumUIOptions(enumValues, uiHint, hint.UIOptionsProvider)
+                ? enumValues.Select(x => new ManifestUIOptionReference(x, NamingHelpers.ToDisplayName(x), null)).ToArray()
+                : [];
 
         return new DiscoveredSetting(
             featureId,
@@ -116,6 +118,14 @@ public sealed class SettingDiscoveryService(
         var clrType = property.PropertyType.FullName ?? property.PropertyType.Name;
         diagnostics?.Add(UnsupportedTypeDiagnosticFactory.Create(featureId, property.Name, clrType));
     }
+
+    private static bool ShouldUseEnumUIOptions(
+        IReadOnlyCollection<string> enumValues,
+        string? uiHint,
+        ManifestUIOptionsProviderReference? uiOptionsProvider) =>
+        enumValues.Count > 0 &&
+        uiOptionsProvider is null &&
+        string.Equals(uiHint, "select-list", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsUnsupportedSchema(SettingSchemaResult schema) =>
         string.Equals(schema.JsonType, "unsupported", StringComparison.OrdinalIgnoreCase);
