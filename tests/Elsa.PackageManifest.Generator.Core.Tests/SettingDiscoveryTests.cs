@@ -71,6 +71,10 @@ public sealed class BooleanSettingsFeature : IShellFeature
     [Required]
     public bool ExplicitlyRequired { get; set; }
 
+    [Required]
+    [DefaultValue(false)]
+    public bool RequiredWithFalseDefault { get; set; }
+
     public bool? OptionalFlag { get; set; }
 }
 """);
@@ -81,6 +85,8 @@ public sealed class BooleanSettingsFeature : IShellFeature
         result.Settings["StartEnabled"].GetProperty("defaultValue").GetBoolean().Should().BeTrue();
         result.Settings["ExplicitlyRequired"].GetProperty("required").GetBoolean().Should().BeTrue();
         result.Settings["ExplicitlyRequired"].TryGetProperty("defaultValue", out _).Should().BeFalse();
+        result.Settings["RequiredWithFalseDefault"].GetProperty("required").GetBoolean().Should().BeTrue();
+        result.Settings["RequiredWithFalseDefault"].GetProperty("defaultValue").GetBoolean().Should().BeFalse();
         result.Settings["OptionalFlag"].GetProperty("required").GetBoolean().Should().BeFalse();
         result.Settings["OptionalFlag"].TryGetProperty("defaultValue", out _).Should().BeFalse();
     }
