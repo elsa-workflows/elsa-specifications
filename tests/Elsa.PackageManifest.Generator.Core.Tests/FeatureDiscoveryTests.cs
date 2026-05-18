@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Elsa.PackageManifest.Generator.Core.Generation;
+using Elsa.PackageManifest.Generator.Core.Overrides;
 using Elsa.PackageManifest.Generator.Core.Validation;
 using Elsa.PackageManifest.Generator.Testing;
 using FluentAssertions;
@@ -314,6 +315,54 @@ public sealed class MessagingFeature : IShellFeature
         requirements["broker"].GetProperty("extensions").GetProperty("owner").GetString().Should().Be("platform");
         requirements["cache"].GetProperty("optional").GetBoolean().Should().BeTrue();
         requirements["cache"].GetProperty("providers").EnumerateArray().Select(x => x.GetString()).Should().Contain("redis");
+    }
+
+    [Fact]
+    public void ApplyOverrides_preserves_infrastructure_kind_when_override_kind_is_empty()
+    {
+        var feature = new DiscoveredFeature(
+            "Sample.Elsa.Package.Messaging",
+            "Messaging",
+            "Sample.Features.MessagingFeature",
+            "Messaging",
+            null,
+            null,
+            FeatureDiscoverySource.IShellFeature,
+            true,
+            false,
+            false,
+            false,
+            false,
+            [],
+            [],
+            [],
+            [new ManifestInfrastructureRequirementReference("broker", "message-broker", false, null, [], ["rabbitmq"], [], new Dictionary<string, object?>())],
+            new Dictionary<string, object?>(),
+            []);
+        var manifestOverride = new ManifestOverride
+        {
+            Features =
+            [
+                new FeatureOverride
+                {
+                    Id = feature.FeatureId,
+                    Infrastructure =
+                    [
+                        new InfrastructureRequirementOverride
+                        {
+                            Id = "broker",
+                            Kind = "",
+                            Providers = ["azure-service-bus"]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        var result = new ManifestMetadataMerger().ApplyOverrides([feature], manifestOverride);
+
+        result[0].Infrastructure[0].Kind.Should().Be("message-broker");
+        result[0].Infrastructure[0].Providers.Should().BeEquivalentTo("rabbitmq", "azure-service-bus");
     }
 
     private static (GeneratedManifestArtifact artifact, GenerationDiagnostics diagnostics) Generate(

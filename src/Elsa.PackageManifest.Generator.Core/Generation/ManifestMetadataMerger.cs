@@ -112,7 +112,7 @@ public sealed class ManifestMetadataMerger
             var existing = result[index];
             result[index] = existing with
             {
-                Kind = requirement.Kind,
+                Kind = string.IsNullOrWhiteSpace(requirement.Kind) ? existing.Kind : requirement.Kind,
                 Optional = requirement.Optional ?? existing.Optional,
                 Reason = requirement.Reason ?? existing.Reason,
                 Capabilities = Merge(existing.Capabilities, requirement.Capabilities),
