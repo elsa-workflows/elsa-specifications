@@ -1,4 +1,5 @@
 using System.Reflection;
+using Elsa.PackageManifest.Generator.Core.Generation;
 
 namespace Elsa.PackageManifest.Generator.Core.AssemblyInspection;
 
@@ -13,6 +14,7 @@ public sealed class FeatureMetadataReader
             FeatureTypeMatcher.ReadNamedString(shellFeature, "DisplayName"),
             FeatureTypeMatcher.ReadNamedString(shellFeature, "Description"),
             FeatureTypeMatcher.ReadDependsOn(shellFeature),
+            ReadInfrastructure(type),
             extensions);
     }
 
@@ -50,6 +52,48 @@ public sealed class FeatureMetadataReader
             .GroupBy(x => x.Key!, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(x => x.Key, x => (object?)x.Last().Value, StringComparer.OrdinalIgnoreCase);
     }
+
+    private static IReadOnlyList<ManifestInfrastructureRequirementReference> ReadInfrastructure(MemberInfo member)
+    {
+        return member.GetCustomAttributesData()
+            .Where(x => x.AttributeType.FullName == "Elsa.PackageManifest.Generator.Hints.ManifestInfrastructureAttribute")
+            .Select(ReadInfrastructureRequirement)
+            .Where(x => !string.IsNullOrWhiteSpace(x.Id) && !string.IsNullOrWhiteSpace(x.Kind))
+            .GroupBy(x => x.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.Last())
+            .OrderBy(x => x.Id, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static ManifestInfrastructureRequirementReference ReadInfrastructureRequirement(CustomAttributeData attribute)
+    {
+        return new ManifestInfrastructureRequirementReference(
+            attribute.ConstructorArguments.Count > 0 ? attribute.ConstructorArguments[0].Value as string ?? "" : "",
+            attribute.ConstructorArguments.Count > 1 ? attribute.ConstructorArguments[1].Value as string ?? "" : "",
+            FeatureTypeMatcher.ReadNamedBool(attribute, "Optional"),
+            FeatureTypeMatcher.ReadNamedString(attribute, "Reason"),
+            FeatureTypeMatcher.ReadNamedStringArray(attribute, "Capabilities"),
+            FeatureTypeMatcher.ReadNamedStringArray(attribute, "Providers"),
+            FeatureTypeMatcher.ReadNamedStringArray(attribute, "ConfigurationKeys"),
+            ReadExtensionPairs(FeatureTypeMatcher.ReadNamedStringArray(attribute, "Extensions")));
+    }
+
+    private static IReadOnlyDictionary<string, object?> ReadExtensionPairs(IReadOnlyList<string> values)
+    {
+        return values
+            .Select(x =>
+            {
+                var separatorIndex = x.IndexOf('=', StringComparison.Ordinal);
+                return new
+                {
+                    Key = separatorIndex > 0 ? x[..separatorIndex] : null,
+                    Value = separatorIndex > 0 ? x[(separatorIndex + 1)..] : null
+                };
+            })
+            .Where(x => !string.IsNullOrWhiteSpace(x.Key))
+            .GroupBy(x => x.Key!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => (object?)x.Last().Value, StringComparer.OrdinalIgnoreCase);
+    }
 }
 
 public sealed record FeatureMetadata(
@@ -57,6 +101,7 @@ public sealed record FeatureMetadata(
     string? DisplayName,
     string? Description,
     IReadOnlyList<string> Dependencies,
+    IReadOnlyList<ManifestInfrastructureRequirementReference> Infrastructure,
     IReadOnlyDictionary<string, object?> Extensions);
 
 public sealed record SettingHintMetadata(

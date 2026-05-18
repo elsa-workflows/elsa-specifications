@@ -58,6 +58,20 @@ public sealed class FeatureTypeMatcher(IReadOnlyList<string>? additionalFeatureI
         return argument?.TypedValue.Value;
     }
 
+    public static IReadOnlyList<string> ReadNamedStringArray(CustomAttributeData? attribute, string propertyName)
+    {
+        var argument = attribute?.NamedArguments.FirstOrDefault(x => x.MemberName == propertyName);
+        if (argument is null)
+            return [];
+
+        return ReadAttributeArray(argument.Value.TypedValue)
+            .OfType<string>()
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
     public static string? GetConstructorString(CustomAttributeData? attribute)
     {
         if (attribute is null || attribute.ConstructorArguments.Count == 0)

@@ -8,7 +8,7 @@ namespace Elsa.PackageManifest.Generator.Hints;
 /// Supplies manifest-only metadata for a CShells feature setting property.
 /// </summary>
 [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
-public sealed class ManifestSettingAttribute : Attribute
+internal sealed class ManifestSettingAttribute : Attribute
 {
     public string? DisplayName { get; set; }
     public string? Description { get; set; }

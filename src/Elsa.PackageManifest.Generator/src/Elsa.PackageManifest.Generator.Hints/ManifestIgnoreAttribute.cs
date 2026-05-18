@@ -8,4 +8,4 @@ namespace Elsa.PackageManifest.Generator.Hints;
 /// Excludes a CShells feature type or feature setting property from manifest generation.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
-public sealed class ManifestIgnoreAttribute : Attribute;
+internal sealed class ManifestIgnoreAttribute : Attribute;
