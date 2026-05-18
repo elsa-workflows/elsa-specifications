@@ -214,6 +214,9 @@ public sealed class ManifestGenerator
 
     private static Dictionary<string, object?> BuildSettingUIOptions(DiscoveredSetting setting)
     {
+        if (!SupportsUIOptions(setting.UIHint))
+            return [];
+
         if (setting.UIOptionsProvider is not null)
         {
             return MergeExtensions(null, new Dictionary<string, object?>
@@ -234,6 +237,11 @@ public sealed class ManifestGenerator
             ["items"] = setting.UIOptions.Select(ToUIOption).ToArray()
         });
     }
+
+    private static bool SupportsUIOptions(string? uiHint) =>
+        string.Equals(uiHint, "select-list", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(uiHint, "multi-select-list", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(uiHint, "radio-list", StringComparison.OrdinalIgnoreCase);
 
     private static Dictionary<string, object?> ToUIOption(ManifestUIOptionReference option) =>
         MergeExtensions(null, new Dictionary<string, object?>
