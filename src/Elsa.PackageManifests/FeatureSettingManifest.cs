@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Elsa.PackageManifests;
 
 public sealed class FeatureSettingManifest : ExtensibleManifestObject
@@ -14,6 +16,7 @@ public sealed class FeatureSettingManifest : ExtensibleManifestObject
     public bool Secret { get; init; }
     public bool RestartRequired { get; init; }
     public string? EnvironmentVariable { get; init; }
-    public Dictionary<string, object?> Ui { get; init; } = new();
+    [JsonPropertyName("ui")]
+    public Dictionary<string, object?> UI { get; init; } = new();
     public Dictionary<string, object?> Extensions { get; init; } = new();
 }

@@ -1,4 +1,5 @@
 using Elsa.PackageManifest.Generator.Core.Overrides;
+using System.Text.Json;
 
 namespace Elsa.PackageManifest.Generator.Core.Generation;
 
@@ -32,7 +33,9 @@ public sealed class ManifestMetadataMerger
                         Secret = settingOverride.Secret ?? setting.Secret,
                         Sensitive = settingOverride.Sensitive ?? setting.Sensitive,
                         RestartRequired = settingOverride.RestartRequired ?? setting.RestartRequired,
-                        UiHint = settingOverride.UiHint ?? setting.UiHint,
+                        UIHint = settingOverride.UIHint ?? ResolveUIHint(settingOverride.UI) ?? setting.UIHint,
+                        UIOptions = ResolveUIOptions(setting.UIOptions, settingOverride.UI),
+                        UIOptionsProvider = ResolveUIOptionsProvider(setting.UIOptionsProvider, settingOverride.UI),
                         Advanced = settingOverride.Advanced ?? setting.Advanced,
                         Experimental = settingOverride.Experimental ?? setting.Experimental,
                         ExtensionMetadata = Merge(setting.ExtensionMetadata, settingOverride.Extensions)
@@ -67,6 +70,131 @@ public sealed class ManifestMetadataMerger
 
         return result;
     }
+
+    private static IReadOnlyList<ManifestUIOptionReference> ResolveUIOptions(
+        IReadOnlyList<ManifestUIOptionReference> current,
+        JsonElement? ui)
+    {
+        if (!TryReadOptions(ui, out var options))
+            return current;
+
+        if (!TryReadString(options, "source", out var source) || !string.Equals(source, "static", StringComparison.OrdinalIgnoreCase))
+            return [];
+
+        if (!TryReadProperty(options, "items", out var items) || items.ValueKind != JsonValueKind.Array)
+            return [];
+
+        return items
+            .EnumerateArray()
+            .Select(ReadUIOption)
+            .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+            .OrderBy(x => x.Value, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static string? ResolveUIHint(JsonElement? ui)
+    {
+        if (ui is null || ui.Value.ValueKind != JsonValueKind.Object)
+            return null;
+
+        return TryReadString(ui.Value, "hint", out var hint) ? hint : null;
+    }
+
+    private static ManifestUIOptionsProviderReference? ResolveUIOptionsProvider(
+        ManifestUIOptionsProviderReference? current,
+        JsonElement? ui)
+    {
+        if (!TryReadOptions(ui, out var options))
+            return current;
+
+        if (!TryReadString(options, "source", out var source) || !string.Equals(source, "provider", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        if (!TryReadString(options, "provider", out var provider) || string.IsNullOrWhiteSpace(provider))
+            return null;
+
+        return new ManifestUIOptionsProviderReference(
+            provider,
+            TryReadStringList(options, "dependsOn"),
+            TryReadDictionary(options, "parameters"));
+    }
+
+    private static ManifestUIOptionReference ReadUIOption(JsonElement item)
+    {
+        TryReadString(item, "value", out var value);
+        TryReadString(item, "label", out var label);
+        TryReadString(item, "description", out var description);
+        return new ManifestUIOptionReference(value ?? "", label, description);
+    }
+
+    private static bool TryReadOptions(JsonElement? ui, out JsonElement options)
+    {
+        options = default;
+        if (ui is null || ui.Value.ValueKind != JsonValueKind.Object)
+            return false;
+
+        return TryReadProperty(ui.Value, "options", out options) && options.ValueKind == JsonValueKind.Object;
+    }
+
+    private static bool TryReadProperty(JsonElement values, string key, out JsonElement result)
+    {
+        foreach (var property in values.EnumerateObject())
+            if (string.Equals(property.Name, key, StringComparison.OrdinalIgnoreCase))
+            {
+                result = property.Value;
+                return true;
+            }
+
+        result = default;
+        return false;
+    }
+
+    private static bool TryReadString(JsonElement values, string key, out string? result)
+    {
+        result = null;
+        if (!TryReadProperty(values, key, out var value) || value.ValueKind != JsonValueKind.String)
+            return false;
+
+        result = value.GetString();
+        return true;
+    }
+
+    private static IReadOnlyList<string> TryReadStringList(JsonElement values, string key)
+    {
+        if (!TryReadProperty(values, key, out var items) || items.ValueKind != JsonValueKind.Array)
+            return [];
+
+        return items
+            .EnumerateArray()
+            .Where(x => x.ValueKind == JsonValueKind.String)
+            .Select(x => x.GetString()!)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static IReadOnlyDictionary<string, object?> TryReadDictionary(JsonElement values, string key)
+    {
+        if (!TryReadProperty(values, key, out var value) || value.ValueKind != JsonValueKind.Object)
+            return new Dictionary<string, object?>();
+
+        return value.EnumerateObject()
+            .ToDictionary(x => x.Name, x => ToObject(x.Value), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static object? ToObject(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.String => value.GetString(),
+        JsonValueKind.Number when value.TryGetInt64(out var integer) => integer,
+        JsonValueKind.Number when value.TryGetDecimal(out var number) => number,
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        JsonValueKind.Null => null,
+        JsonValueKind.Object => value.EnumerateObject().ToDictionary(x => x.Name, x => ToObject(x.Value), StringComparer.OrdinalIgnoreCase),
+        JsonValueKind.Array => value.EnumerateArray().Select(ToObject).ToArray(),
+        _ => null
+    };
 
     private static ManifestDependencyReference ToDependencyReference(DependencyOverride dependency) =>
         new(

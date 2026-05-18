@@ -147,6 +147,164 @@ public sealed class CSharpFeature : IShellFeature
     }
 
     [Fact]
+    public async Task Generate_emits_enum_setting_as_select_list_ui_with_static_options()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+
+namespace Sample.Features;
+
+[ShellFeature("Storage", DisplayName = "Storage")]
+public sealed class StorageFeature : IShellFeature
+{
+    public StorageProvider Provider { get; set; }
+}
+
+public enum StorageProvider
+{
+    Sqlite,
+    SqlServer,
+    Postgres
+}
+""");
+
+        var build = await project.BuildAsync();
+        build.ExitCode.Should().Be(0, build.CombinedOutput);
+
+        var result = Generate(project);
+        result.diagnostics.Items.Where(x => x.Severity == GenerationDiagnosticSeverity.Error).Should().BeEmpty();
+
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+        var setting = document.RootElement
+            .GetProperty("features")[0]
+            .GetProperty("settings")[0];
+
+        setting.GetProperty("validation").GetProperty("enum").EnumerateArray().Select(x => x.GetString()).Should()
+            .Equal("Postgres", "SqlServer", "Sqlite");
+        setting.GetProperty("extensions").TryGetProperty("enumValues", out _).Should().BeFalse();
+
+        var ui = setting.GetProperty("ui");
+        ui.GetProperty("hint").GetString().Should().Be("select-list");
+        var options = ui.GetProperty("options");
+        options.GetProperty("source").GetString().Should().Be("static");
+        options.GetProperty("items").EnumerateArray()
+            .Select(x => (Value: x.GetProperty("value").GetString(), Label: x.GetProperty("label").GetString()))
+            .Should()
+            .Equal(("Postgres", "Postgres"), ("SqlServer", "Sql Server"), ("Sqlite", "Sqlite"));
+    }
+
+    [Fact]
+    public async Task Generate_reads_code_first_static_and_dynamic_ui_options()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.PackageManifest.Generator.Hints;
+
+namespace Sample.Features;
+
+[ShellFeature("Search", DisplayName = "Search")]
+public sealed class SearchFeature : IShellFeature
+{
+    [ManifestSetting(UIHint = "select-list")]
+    [ManifestUIOption("simple", Label = "Simple")]
+    [ManifestUIOption("advanced", Label = "Advanced", Description = "Use advanced search.")]
+    public string Mode { get; set; } = "";
+
+    [ManifestSetting(UIHint = "select-list")]
+    [ManifestUIOptionsProvider("elsa.catalog.package-source-options", DependsOn = new[] { "TenantId" }, Parameters = new[] { "kind=nuget-source" })]
+    public string PackageSource { get; set; } = "";
+}
+""");
+
+        var build = await project.BuildAsync();
+        build.ExitCode.Should().Be(0, build.CombinedOutput);
+
+        var result = Generate(project);
+        result.diagnostics.Items.Where(x => x.Severity == GenerationDiagnosticSeverity.Error).Should().BeEmpty();
+
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+        var settings = document.RootElement.GetProperty("features")[0]
+            .GetProperty("settings")
+            .EnumerateArray()
+            .ToDictionary(x => x.GetProperty("name").GetString()!);
+
+        var modeOptions = settings["Mode"].GetProperty("ui").GetProperty("options");
+        modeOptions.GetProperty("source").GetString().Should().Be("static");
+        modeOptions.GetProperty("items").EnumerateArray()
+            .Select(x => x.GetProperty("value").GetString())
+            .Should()
+            .Equal("advanced", "simple");
+
+        var providerOptions = settings["PackageSource"].GetProperty("ui").GetProperty("options");
+        providerOptions.GetProperty("source").GetString().Should().Be("provider");
+        providerOptions.GetProperty("provider").GetString().Should().Be("elsa.catalog.package-source-options");
+        providerOptions.GetProperty("dependsOn").EnumerateArray().Select(x => x.GetString()).Should().Equal("TenantId");
+        providerOptions.GetProperty("parameters").GetProperty("kind").GetString().Should().Be("nuget-source");
+    }
+
+    [Fact]
+    public async Task Generate_applies_override_ui_options()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+
+namespace Sample.Features;
+
+[ShellFeature("Search", DisplayName = "Search")]
+public sealed class SearchFeature : IShellFeature
+{
+    public string PackageSource { get; set; } = "";
+}
+""");
+
+        var build = await project.BuildAsync();
+        build.ExitCode.Should().Be(0, build.CombinedOutput);
+        var overridePath = Path.Combine(project.ProjectDirectory, "elsa-package.overrides.json");
+        await File.WriteAllTextAsync(overridePath, """
+{
+  "features": [
+    {
+      "id": "Sample.Elsa.Package.Search",
+      "settings": [
+        {
+          "name": "PackageSource",
+          "ui": {
+            "hint": "select-list",
+            "options": {
+              "source": "provider",
+              "provider": "elsa.catalog.package-source-options",
+              "dependsOn": ["TenantId"],
+              "parameters": { "kind": "nuget-source" }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+""");
+
+        var result = Generate(project, overridePath);
+        result.diagnostics.Items.Where(x => x.Severity == GenerationDiagnosticSeverity.Error).Should().BeEmpty();
+
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+        var ui = document.RootElement
+            .GetProperty("features")[0]
+            .GetProperty("settings")[0]
+            .GetProperty("ui");
+
+        ui.GetProperty("hint").GetString().Should().Be("select-list");
+        var options = ui.GetProperty("options");
+        options.GetProperty("source").GetString().Should().Be("provider");
+        options.GetProperty("provider").GetString().Should().Be("elsa.catalog.package-source-options");
+        options.GetProperty("dependsOn").EnumerateArray().Select(x => x.GetString()).Should().Equal("TenantId");
+        options.GetProperty("parameters").GetProperty("kind").GetString().Should().Be("nuget-source");
+    }
+
+    [Fact]
     public async Task Generate_applies_infrastructure_requirements_from_override_file()
     {
         await using var project = new SampleProjectBuilder()

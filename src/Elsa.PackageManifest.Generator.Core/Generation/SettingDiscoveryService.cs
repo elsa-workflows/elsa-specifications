@@ -57,7 +57,7 @@ public sealed class SettingDiscoveryService(
     {
         var hint = metadataReader.ReadSettingMetadata(property);
         var nullable = nullableMetadataReader.IsNullable(property);
-        var validation = validationAnnotationMapper.Map(property);
+        var validation = new Dictionary<string, object?>(validationAnnotationMapper.Map(property), StringComparer.OrdinalIgnoreCase);
         var schema = schemaGenerator.Generate(property.PropertyType, nullable, validation);
         if (IsUnsupportedSchema(schema))
         {
@@ -75,7 +75,14 @@ public sealed class SettingDiscoveryService(
         var enumValues = property.PropertyType.IsEnum
             ? Enum.GetNames(property.PropertyType).Order(StringComparer.Ordinal).ToArray()
             : [];
+        if (enumValues.Length > 0)
+            validation["enum"] = enumValues;
+
         var displayName = hint.DisplayName ?? NamingHelpers.ToDisplayName(property.Name);
+        var uiHint = hint.UIHint ?? (enumValues.Length > 0 ? "select-list" : null);
+        var uiOptions = hint.UIOptions.Count > 0
+            ? hint.UIOptions
+            : enumValues.Select(x => new ManifestUIOptionReference(x, NamingHelpers.ToDisplayName(x), null)).ToArray();
 
         return new DiscoveredSetting(
             featureId,
@@ -96,7 +103,9 @@ public sealed class SettingDiscoveryService(
             hint.Secret,
             hint.Sensitive,
             hint.RestartRequired,
-            hint.UiHint,
+            uiHint,
+            uiOptions,
+            hint.UIOptionsProvider,
             hint.Advanced,
             hint.Experimental,
             hint.Extensions);

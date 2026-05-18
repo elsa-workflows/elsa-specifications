@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Elsa.PackageManifest.Generator.Core.Overrides;
@@ -66,7 +67,8 @@ public sealed class SettingOverride
     public bool? Secret { get; init; }
     public bool? Sensitive { get; init; }
     public bool? RestartRequired { get; init; }
-    public string? UiHint { get; init; }
+    public string? UIHint { get; init; }
+    public JsonElement? UI { get; init; }
     public bool? Advanced { get; init; }
     public bool? Experimental { get; init; }
     public Dictionary<string, object?>? Extensions { get; init; }
