@@ -11,8 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\ValenceControl.PackageManifest.Generator.Core\ValenceControl.PackageManifest.Generator.Core.csproj" />
-    <ProjectReference Include="..\..\src\ValenceControl.PackageManifest.Generator.MSBuild\ValenceControl.PackageManifest.Generator.MSBuild.csproj" />
+    <ProjectReference Include="..\..\..\src\PackageManifests\ValenceControl.PackageManifest.Generator.Core\ValenceControl.PackageManifest.Generator.Core.csproj" />
     <ProjectReference Include="..\ValenceControl.PackageManifest.Generator.Testing\ValenceControl.PackageManifest.Generator.Testing.csproj" />
   </ItemGroup>
 
