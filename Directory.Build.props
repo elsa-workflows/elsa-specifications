@@ -1,0 +1,24 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Version>0.0.1</Version>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <AssemblyName>$(MSBuildProjectName)</AssemblyName>
+    <RootNamespace>$(MSBuildProjectName)</RootNamespace>
+    <Product>Elsa Specifications</Product>
+    <Title>$(MSBuildProjectName)</Title>
+    <Description>Shared package metadata contracts and build-time manifest generation for Elsa Workflows packages.</Description>
+    <Authors>Elsa Workflows</Authors>
+    <Company>Elsa Workflows</Company>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/elsa-workflows/elsa-specifications</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/elsa-workflows/elsa-specifications</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>Copyright © 2026 Elsa Workflows contributors.</Copyright>
+  </PropertyGroup>
+</Project>

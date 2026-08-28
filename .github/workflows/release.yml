@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Package version (for example, 0.0.1)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${{ inputs.version }}" ]; then
+            version="${{ inputs.version }}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Restore
+        run: dotnet restore Elsa.Specifications.sln
+
+      - name: Build
+        run: dotnet build Elsa.Specifications.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test Elsa.Specifications.sln --configuration Release --no-build --no-restore
+
+      - name: Pack release packages
+        run: dotnet pack Elsa.Specifications.sln --configuration Release --no-build --no-restore --output artifacts/packages -p:Version=${{ steps.version.outputs.value }}
+
+      - name: Publish to Elsa 4 Feedz
+        run: dotnet nuget push "artifacts/packages/*.nupkg" --api-key "$FEEDZ_API_KEY" --source https://nuget.elsa-workflows.io/v3/index.json --skip-duplicate
+        env:
+          FEEDZ_API_KEY: ${{ secrets.FEEDZ_API_KEY }}
+
+      - name: Publish to NuGet.org
+        run: dotnet nuget push "artifacts/packages/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}

@@ -1,0 +1,3 @@
+<Project>
+  <Import Project="..\build\Elsa.Specifications.PackageManifest.Generator.targets" />
+</Project>
