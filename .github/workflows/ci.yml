@@ -34,6 +34,9 @@ jobs:
       - name: Pack
         run: dotnet pack Elsa.Specifications.sln --configuration Release --no-build --no-restore --output artifacts/packages
 
+      - name: Verify generator package
+        run: eng/verify-generator-package.sh artifacts/packages
+
       - name: Upload packages
         uses: actions/upload-artifact@v4
         with:
@@ -60,6 +63,9 @@ jobs:
 
       - name: Pack preview
         run: dotnet pack Elsa.Specifications.sln --configuration Release --no-restore --output artifacts/packages -p:Version=0.0.1-preview.${{ github.run_number }}
+
+      - name: Verify generator package
+        run: eng/verify-generator-package.sh artifacts/packages
 
       - name: Publish preview to Elsa 4 Feedz
         run: dotnet nuget push "artifacts/packages/*.nupkg" --api-key "$FEEDZ_API_KEY" --source https://f.feedz.io/elsa-workflows/elsa-4/nuget/index.json --skip-duplicate

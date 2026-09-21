@@ -53,6 +53,9 @@ jobs:
       - name: Pack release packages
         run: dotnet pack Elsa.Specifications.sln --configuration Release --no-build --no-restore --output artifacts/packages -p:Version=${{ steps.version.outputs.value }}
 
+      - name: Verify generator package
+        run: eng/verify-generator-package.sh artifacts/packages
+
       - name: Publish to Elsa 4 Feedz
         run: dotnet nuget push "artifacts/packages/*.nupkg" --api-key "$FEEDZ_API_KEY" --source https://f.feedz.io/elsa-workflows/elsa-4/nuget/index.json --skip-duplicate
         env:

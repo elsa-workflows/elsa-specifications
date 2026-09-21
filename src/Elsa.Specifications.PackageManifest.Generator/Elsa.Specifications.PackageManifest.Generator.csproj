@@ -17,7 +17,29 @@
     <None Include="buildTransitive/**/*.*" Pack="true" PackagePath="buildTransitive/" />
     <None Include="README.md" Pack="true" PackagePath="/" />
     <Content Include="src/Elsa.Specifications.PackageManifest.Generator.Hints/**/*.cs" Pack="true" PackagePath="contentFiles/cs/any/Elsa.Specifications.PackageManifest.Generator.Hints/" BuildAction="Compile" />
-    <Content Include="../Elsa.Specifications.PackageManifest.Generator.MSBuild/bin/$(Configuration)/$(TargetFramework)/*.dll" Pack="true" PackagePath="tasks/" Condition="Exists('../Elsa.Specifications.PackageManifest.Generator.MSBuild/bin/$(Configuration)/$(TargetFramework)/Elsa.Specifications.PackageManifest.Generator.MSBuild.dll')" />
-    <Content Include="../Elsa.Specifications.PackageManifest.Generator.MSBuild/bin/$(Configuration)/$(TargetFramework)/Elsa.Specifications.PackageManifest.Generator.MSBuild.deps.json" Pack="true" PackagePath="tasks/" Condition="Exists('../Elsa.Specifications.PackageManifest.Generator.MSBuild/bin/$(Configuration)/$(TargetFramework)/Elsa.Specifications.PackageManifest.Generator.MSBuild.deps.json')" />
   </ItemGroup>
+
+  <!--
+    The evaluation-time Content globs this replaced were empty on a clean `dotnet pack` invocation
+    with no prior build, because they were resolved before the referenced MSBuild task project had
+    been built, silently shipping a package without its `tasks/` folder. TargetsForTfmSpecificContentInPackage
+    runs at pack time, after that project's Build target has run, so it sees the task assembly whether
+    or not the solution was built beforehand.
+  -->
+  <PropertyGroup>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_PackMSBuildTaskAssembly</TargetsForTfmSpecificContentInPackage>
+    <_MSBuildTaskOutputDir>../Elsa.Specifications.PackageManifest.Generator.MSBuild/bin/$(Configuration)/$(TargetFramework)/</_MSBuildTaskOutputDir>
+    <_MSBuildTaskAssembly>$(_MSBuildTaskOutputDir)Elsa.Specifications.PackageManifest.Generator.MSBuild.dll</_MSBuildTaskAssembly>
+  </PropertyGroup>
+
+  <Target Name="_PackMSBuildTaskAssembly">
+    <Error Condition="!Exists('$(_MSBuildTaskAssembly)')"
+           Text="The MSBuild task assembly was not found at '$(_MSBuildTaskAssembly)'. Build Elsa.Specifications.PackageManifest.Generator.MSBuild before packing this project." />
+
+    <ItemGroup>
+      <_MSBuildTaskFile Include="$(_MSBuildTaskOutputDir)*.dll" />
+      <_MSBuildTaskFile Include="$(_MSBuildTaskOutputDir)Elsa.Specifications.PackageManifest.Generator.MSBuild.deps.json" />
+      <TfmSpecificPackageFile Include="@(_MSBuildTaskFile)" PackagePath="tasks/%(Filename)%(Extension)" />
+    </ItemGroup>
+  </Target>
 </Project>
