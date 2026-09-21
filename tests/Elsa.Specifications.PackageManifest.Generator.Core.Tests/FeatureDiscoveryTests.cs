@@ -857,7 +857,7 @@ public sealed class StudioWidgetFeature : IShellFeature
     }
 
     [Fact]
-    public async Task Generate_reads_assembly_level_manifest_extension_into_package_extensions()
+    public async Task Generate_reads_assembly_level_manifest_extension_into_package_extensions_without_a_reserved_key_warning()
     {
         await using var project = new SampleProjectBuilder()
             .WithSource("""
@@ -880,7 +880,7 @@ public sealed class SampleFeature : IShellFeature
         using var document = JsonDocument.Parse(result.artifact.ManifestJson);
 
         Assert.Equal("alpha", document.RootElement.GetProperty("extensions").GetProperty("sampleKey").GetString());
-        Assert.DoesNotContain(result.diagnostics.Items, x => x.Code == "EPMGEN_EXTENSION_RESERVED_KEY");
+        AssertReservedKeyWarnings(result.diagnostics);
     }
 
     [Fact]
@@ -965,6 +965,7 @@ using CShells.Features;
 using Elsa.Specifications.PackageManifest.Generator.Hints;
 
 [assembly: ManifestExtension("authors", "Someone Else")]
+[assembly: ManifestExtension("authors", "Yet Another")]
 [assembly: ManifestExtension("repositoryUrl", "https://example.invalid/attribute")]
 [assembly: ManifestExtension("readmeFile", "ATTRIBUTE.md")]
 [assembly: ManifestExtension("targetFrameworks", "netstandard1.0")]
@@ -988,13 +989,9 @@ public sealed class SampleFeature : IShellFeature
         Assert.Equal("https://example.invalid/real", extensions.GetProperty("repositoryUrl").GetString());
         Assert.Equal("README.md", extensions.GetProperty("readmeFile").GetString());
 
-        // One EPMGEN_EXTENSION_RESERVED_KEY warning per rejected attribute, naming the four reserved keys.
-        var reservedKeyWarnings = result.diagnostics.Items.Where(x => x.Code == "EPMGEN_EXTENSION_RESERVED_KEY").ToArray();
-        Assert.Equal(4, reservedKeyWarnings.Length);
-        Assert.All(reservedKeyWarnings, x => Assert.Equal(GenerationDiagnosticSeverity.Warning, x.Severity));
-        Assert.Equal(
-            new[] { "authors", "readmeFile", "repositoryUrl", "targetFrameworks" },
-            reservedKeyWarnings.Select(x => x.Target).OrderBy(x => x, StringComparer.Ordinal));
+        // One warning per rejected key, not per attribute occurrence: "authors" is declared twice with
+        // different values, and the four reserved keys still yield exactly four warnings.
+        AssertReservedKeyWarnings(result.diagnostics, "authors", "readmeFile", "repositoryUrl", "targetFrameworks");
     }
 
     [Fact]
@@ -1030,12 +1027,7 @@ public sealed class SampleFeature : IShellFeature
         Assert.False(extensions.TryGetProperty("readmeFile", out _));
         Assert.False(extensions.TryGetProperty("ReadmeFile", out _));
 
-        var reservedKeyWarnings = result.diagnostics.Items.Where(x => x.Code == "EPMGEN_EXTENSION_RESERVED_KEY").ToArray();
-        Assert.Equal(2, reservedKeyWarnings.Length);
-        Assert.All(reservedKeyWarnings, x => Assert.Equal(GenerationDiagnosticSeverity.Warning, x.Severity));
-        Assert.Equal(
-            new[] { "ReadmeFile", "repositoryUrl" },
-            reservedKeyWarnings.Select(x => x.Target).OrderBy(x => x, StringComparer.Ordinal));
+        AssertReservedKeyWarnings(result.diagnostics, "ReadmeFile", "repositoryUrl");
     }
 
     [Fact]
@@ -1149,6 +1141,22 @@ public sealed class JavaScriptFeature : IShellFeature
         // not the package-qualified feature id.
         Assert.Equal("JintEngine", dependency.GetProperty("featureId").GetString());
         Assert.False(dependency.TryGetProperty("packageId", out _));
+    }
+
+    /// <summary>
+    /// Asserts that the reserved-key warnings are exactly one per expected key, each a warning. Comparing the
+    /// ordinally sorted target lists derives the count from <paramref name="expectedKeys"/>, so a second warning
+    /// for a key already listed, or a warning for a key not listed, fails just as a missing one does. Passing no
+    /// expected keys asserts that no reserved-key warning was emitted at all.
+    /// </summary>
+    private static void AssertReservedKeyWarnings(GenerationDiagnostics diagnostics, params string[] expectedKeys)
+    {
+        var warnings = diagnostics.Items.Where(x => x.Code == "EPMGEN_EXTENSION_RESERVED_KEY").ToArray();
+
+        Assert.All(warnings, x => Assert.Equal(GenerationDiagnosticSeverity.Warning, x.Severity));
+        Assert.Equal(
+            expectedKeys.OrderBy(x => x, StringComparer.Ordinal),
+            warnings.Select(x => x.Target).OrderBy(x => x, StringComparer.Ordinal));
     }
 
     private static (GeneratedManifestArtifact artifact, GenerationDiagnostics diagnostics) Generate(
