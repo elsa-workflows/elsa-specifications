@@ -880,6 +880,7 @@ public sealed class SampleFeature : IShellFeature
         using var document = JsonDocument.Parse(result.artifact.ManifestJson);
 
         Assert.Equal("alpha", document.RootElement.GetProperty("extensions").GetProperty("sampleKey").GetString());
+        Assert.DoesNotContain(result.diagnostics.Items, x => x.Code == "EPMGEN_EXTENSION_RESERVED_KEY");
     }
 
     [Fact]
@@ -986,6 +987,14 @@ public sealed class SampleFeature : IShellFeature
         Assert.Equal("net10.0", extensions.GetProperty("targetFrameworks").EnumerateArray().Single().GetString());
         Assert.Equal("https://example.invalid/real", extensions.GetProperty("repositoryUrl").GetString());
         Assert.Equal("README.md", extensions.GetProperty("readmeFile").GetString());
+
+        // One EPMGEN_EXTENSION_RESERVED_KEY warning per rejected attribute, naming the four reserved keys.
+        var reservedKeyWarnings = result.diagnostics.Items.Where(x => x.Code == "EPMGEN_EXTENSION_RESERVED_KEY").ToArray();
+        Assert.Equal(4, reservedKeyWarnings.Length);
+        Assert.All(reservedKeyWarnings, x => Assert.Equal(GenerationDiagnosticSeverity.Warning, x.Severity));
+        Assert.Equal(
+            new[] { "authors", "readmeFile", "repositoryUrl", "targetFrameworks" },
+            reservedKeyWarnings.Select(x => x.Target).OrderBy(x => x, StringComparer.Ordinal));
     }
 
     [Fact]
@@ -993,13 +1002,15 @@ public sealed class SampleFeature : IShellFeature
     {
         // Regression: a null built-in value must not let the attribute's key through, or a project with
         // no repository URL or readme file would get one silently supplied from an assembly attribute.
+        // "ReadmeFile" is declared in a different case than the built-in "readmeFile" to prove the
+        // reservation is case-insensitive too.
         await using var project = new SampleProjectBuilder()
             .WithSource("""
 using CShells.Features;
 using Elsa.Specifications.PackageManifest.Generator.Hints;
 
 [assembly: ManifestExtension("repositoryUrl", "https://example.invalid/attribute")]
-[assembly: ManifestExtension("readmeFile", "ATTRIBUTE.md")]
+[assembly: ManifestExtension("ReadmeFile", "ATTRIBUTE.md")]
 
 namespace Sample.Features;
 
@@ -1017,6 +1028,14 @@ public sealed class SampleFeature : IShellFeature
 
         Assert.False(extensions.TryGetProperty("repositoryUrl", out _));
         Assert.False(extensions.TryGetProperty("readmeFile", out _));
+        Assert.False(extensions.TryGetProperty("ReadmeFile", out _));
+
+        var reservedKeyWarnings = result.diagnostics.Items.Where(x => x.Code == "EPMGEN_EXTENSION_RESERVED_KEY").ToArray();
+        Assert.Equal(2, reservedKeyWarnings.Length);
+        Assert.All(reservedKeyWarnings, x => Assert.Equal(GenerationDiagnosticSeverity.Warning, x.Severity));
+        Assert.Equal(
+            new[] { "ReadmeFile", "repositoryUrl" },
+            reservedKeyWarnings.Select(x => x.Target).OrderBy(x => x, StringComparer.Ordinal));
     }
 
     [Fact]
