@@ -7,7 +7,7 @@
 set -euo pipefail
 
 packages_dir=$(cd "${1:?usage: $0 <packages-dir>}" && pwd)
-nupkg=$(find "$packages_dir" -maxdepth 1 -iname 'Elsa.Specifications.PackageManifest.Generator.*.nupkg' | sort | tail -n1)
+nupkg=$(find "$packages_dir" -maxdepth 1 -iname 'Elsa.Specifications.PackageManifest.Generator.*.nupkg' | sort -V | tail -n1)
 [ -n "$nupkg" ] || { echo "No Elsa.Specifications.PackageManifest.Generator package found in $packages_dir" >&2; exit 1; }
 
 # Captured into a variable rather than piped into `grep -q` directly: under `pipefail`, `grep -q`
@@ -31,7 +31,6 @@ cat > "$work_dir/nuget.config" <<CONFIG
   <packageSources>
     <clear />
     <add key="local" value="$packages_dir" />
-    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
   </packageSources>
 </configuration>
 CONFIG
@@ -44,7 +43,7 @@ cat > "$work_dir/Consumer.csproj" <<CSPROJ
     <Version>1.0.0</Version>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Elsa.Specifications.PackageManifest.Generator" Version="$version" PrivateAssets="all" />
+    <PackageReference Include="Elsa.Specifications.PackageManifest.Generator" Version="[$version]" PrivateAssets="all" />
   </ItemGroup>
 </Project>
 CSPROJ
