@@ -34,6 +34,14 @@ Apply `ManifestFeatureCategoryAttribute` zero or more times to a feature class t
 
 Enum settings emit validation enum values and default to `ui.hint = "select-list"` with static option items. Use `ManifestUIOptionAttribute` for custom static list values and `ManifestUIOptionsProviderAttribute` to reference a trusted Runtime Builder option provider for dynamic list values. Provider references are manifest data only; the generator does not execute package code to resolve options.
 
+`ManifestExtensionAttribute(key, value)` contributes an arbitrary key/value pair to `extensions`. It applies to a class or a property, where it reaches the owning feature's or setting's `extensions`, and it can now also be applied at the assembly level, where it reaches the package-level `extensions`:
+
+```csharp
+[assembly: ManifestExtension("efModules", "Sqlite")]
+```
+
+A key that occurs once stays a plain string. A key that occurs more than once at the same level (assembly, feature, or setting) accumulates into a JSON array of its values, sorted ordinally, instead of the last occurrence winning. Package-level `extensions` is built from three sources with this precedence, lowest to highest: assembly-level `ManifestExtensionAttribute`, then `elsa-package.overrides.json`, then the built-in keys the generator itself fills in (`authors`, `repositoryUrl`, `readmeFile`, `targetFrameworks`). Neither an attribute nor the override file can replace one of those built-in keys; the override file, being the explicit operator-facing override, wins over an assembly-level key with the same name.
+
 For metadata that cannot be inferred, add `elsa-package.overrides.json` beside the project file or set `ElsaPackageManifestOverrideFile`.
 
 Runtime kind compatibility can be declared through overrides:

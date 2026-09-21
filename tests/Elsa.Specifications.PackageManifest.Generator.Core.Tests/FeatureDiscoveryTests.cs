@@ -857,6 +857,146 @@ public sealed class StudioWidgetFeature : IShellFeature
     }
 
     [Fact]
+    public async Task Generate_reads_assembly_level_manifest_extension_into_package_extensions()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.Specifications.PackageManifest.Generator.Hints;
+
+[assembly: ManifestExtension("efModules", "Sqlite")]
+
+namespace Sample.Features;
+
+[ShellFeature("EfModules", DisplayName = "EF Modules")]
+public sealed class EfModulesFeature : IShellFeature
+{
+}
+""");
+        var build = await project.BuildAsync();
+        Assert.Equal(0, build.ExitCode);
+
+        var result = Generate(project);
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+
+        Assert.Equal("Sqlite", document.RootElement.GetProperty("extensions").GetProperty("efModules").GetString());
+    }
+
+    [Fact]
+    public async Task Generate_accumulates_repeated_manifest_extension_keys_into_sorted_array_at_every_level()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.Specifications.PackageManifest.Generator.Hints;
+
+[assembly: ManifestExtension("efModules", "Sqlite")]
+[assembly: ManifestExtension("efModules", "SqlServer")]
+
+namespace Sample.Features;
+
+[ManifestExtension("tier", "gold")]
+[ManifestExtension("tier", "bronze")]
+[ShellFeature("EfModules", DisplayName = "EF Modules")]
+public sealed class EfModulesFeature : IShellFeature
+{
+    [ManifestExtension("kind", "secondary")]
+    [ManifestExtension("kind", "primary")]
+    public string? Provider { get; set; }
+}
+""");
+        var build = await project.BuildAsync();
+        Assert.Equal(0, build.ExitCode);
+
+        var result = Generate(project);
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+
+        // Ordinal sort: uppercase letters sort before lowercase ones, so "SqlServer" precedes "Sqlite".
+        Assert.Equal(
+            ["SqlServer", "Sqlite"],
+            document.RootElement.GetProperty("extensions").GetProperty("efModules").EnumerateArray().Select(x => x.GetString()));
+
+        var feature = document.RootElement.GetProperty("features")[0];
+        Assert.Equal(
+            ["bronze", "gold"],
+            feature.GetProperty("extensions").GetProperty("tier").EnumerateArray().Select(x => x.GetString()));
+
+        var setting = feature.GetProperty("settings")[0];
+        Assert.Equal(
+            ["primary", "secondary"],
+            setting.GetProperty("extensions").GetProperty("kind").EnumerateArray().Select(x => x.GetString()));
+    }
+
+    [Fact]
+    public async Task Generate_never_lets_assembly_level_manifest_extension_replace_a_built_in_package_key()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.Specifications.PackageManifest.Generator.Hints;
+
+[assembly: ManifestExtension("authors", "Someone Else")]
+[assembly: ManifestExtension("repositoryUrl", "https://example.invalid/attribute")]
+[assembly: ManifestExtension("readmeFile", "ATTRIBUTE.md")]
+[assembly: ManifestExtension("targetFrameworks", "netstandard1.0")]
+
+namespace Sample.Features;
+
+[ShellFeature("EfModules", DisplayName = "EF Modules")]
+public sealed class EfModulesFeature : IShellFeature
+{
+}
+""");
+        var build = await project.BuildAsync();
+        Assert.Equal(0, build.ExitCode);
+
+        var result = Generate(project, repositoryUrl: "https://example.invalid/real", readmeFile: "README.md");
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+        var extensions = document.RootElement.GetProperty("extensions");
+
+        Assert.Equal(["Elsa"], extensions.GetProperty("authors").EnumerateArray().Select(x => x.GetString()));
+        Assert.Equal("net10.0", extensions.GetProperty("targetFrameworks").EnumerateArray().Single().GetString());
+        Assert.Equal("https://example.invalid/real", extensions.GetProperty("repositoryUrl").GetString());
+        Assert.Equal("README.md", extensions.GetProperty("readmeFile").GetString());
+    }
+
+    [Fact]
+    public async Task Generate_lets_override_file_extension_win_over_assembly_level_manifest_extension()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.Specifications.PackageManifest.Generator.Hints;
+
+[assembly: ManifestExtension("efModules", "Sqlite")]
+
+namespace Sample.Features;
+
+[ShellFeature("EfModules", DisplayName = "EF Modules")]
+public sealed class EfModulesFeature : IShellFeature
+{
+}
+""");
+        var build = await project.BuildAsync();
+        Assert.Equal(0, build.ExitCode);
+        var overridePath = Path.Combine(project.ProjectDirectory, "elsa-package.overrides.json");
+        await File.WriteAllTextAsync(overridePath, """
+{
+  "package": {
+    "extensions": {
+      "efModules": "PostgreSql"
+    }
+  }
+}
+""");
+
+        var result = Generate(project, overridePath);
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+
+        Assert.Equal("PostgreSql", document.RootElement.GetProperty("extensions").GetProperty("efModules").GetString());
+    }
+
+    [Fact]
     public async Task Generate_emits_bare_cshells_feature_name_for_dependencies()
     {
         await using var project = new SampleProjectBuilder()
@@ -899,7 +1039,9 @@ public sealed class JavaScriptFeature : IShellFeature
         SampleProjectBuilder project,
         string? overridePath = null,
         string packageId = "Sample.Elsa.Package",
-        string title = "Sample")
+        string title = "Sample",
+        string? repositoryUrl = null,
+        string? readmeFile = null)
     {
         var originalCulture = CultureInfo.CurrentCulture;
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("nl-NL");
@@ -909,7 +1051,7 @@ public sealed class JavaScriptFeature : IShellFeature
         {
             var artifact = generator.Generate(
                 new GeneratorOptions(true, Path.Combine(project.ProjectDirectory, "obj", "elsa-package.json"), true, "elsa-package.json", overridePath, "Error", false, false, false, "concise", []),
-                ProjectPackageMetadataMapper.Map(packageId, "1.2.3", title, "Sample package.", "Elsa", null, null, "elsa", null, null, "net10.0", null),
+                ProjectPackageMetadataMapper.Map(packageId, "1.2.3", title, "Sample package.", "Elsa", repositoryUrl, null, "elsa", null, readmeFile, "net10.0", null),
                 new AssemblyInspectionInput(project.AssemblyPath, project.XmlDocumentationPath, "net10.0", [], true),
                 diagnostics);
 

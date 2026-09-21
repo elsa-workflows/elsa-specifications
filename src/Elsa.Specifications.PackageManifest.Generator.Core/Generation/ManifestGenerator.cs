@@ -61,7 +61,7 @@ public sealed class ManifestGenerator
         var recommendedValidator = new RecommendedMetadataValidator();
         recommendedValidator.Validate(features, options.Strict, diagnostics);
 
-        var manifest = BuildManifest(packageMetadata, discovered.PackageCompatibility, features, manifestOverride);
+        var manifest = BuildManifest(packageMetadata, discovered.PackageCompatibility, discovered.PackageExtensions, features, manifestOverride);
         var manifestJson = DeterministicJsonSerializer.Serialize(manifest);
 
         var sizeValidator = new GeneratedManifestSizeValidator();
@@ -104,7 +104,7 @@ public sealed class ManifestGenerator
             options.IncludeInPackage);
     }
 
-    private static ElsaPackageManifest BuildManifest(ProjectPackageMetadata metadata, CompatibilityOverride? packageCompatibility, IReadOnlyList<DiscoveredFeature> features, ManifestOverride? manifestOverride)
+    private static ElsaPackageManifest BuildManifest(ProjectPackageMetadata metadata, CompatibilityOverride? packageCompatibility, IReadOnlyDictionary<string, object?> assemblyExtensions, IReadOnlyList<DiscoveredFeature> features, ManifestOverride? manifestOverride)
     {
         var packageOverride = manifestOverride?.Package;
         return new ElsaPackageManifest
@@ -123,7 +123,9 @@ public sealed class ManifestGenerator
             Conflicts = ToConflicts(packageOverride?.Conflicts),
             License = ToLicense(packageOverride?.License, metadata.PackageLicenseExpression),
             Documentation = ToDocumentation(packageOverride?.Documentation, metadata.PackageProjectUrl),
-            Extensions = MergeExtensions(packageOverride?.Extensions, new Dictionary<string, object?>
+            // Precedence, lowest to highest: assembly-level [ManifestExtension], then the override file,
+            // then the built-in package keys, which an attribute or override can never replace.
+            Extensions = MergeExtensions(MergeExtensions(assemblyExtensions, packageOverride?.Extensions), new Dictionary<string, object?>
             {
                 ["authors"] = metadata.Authors,
                 ["repositoryUrl"] = metadata.RepositoryUrl,

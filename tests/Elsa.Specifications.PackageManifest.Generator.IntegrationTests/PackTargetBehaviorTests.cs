@@ -56,6 +56,34 @@ public sealed class PackTargetBehaviorTests
     }
 
     [Fact]
+    public async Task Pack_with_build_includes_assembly_level_manifest_extension_in_package_extensions()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithLocalGeneratorPackage()
+            .WithSource("""
+#nullable enable
+using CShells.Features;
+using Elsa.Specifications.PackageManifest.Generator.Hints;
+
+[assembly: ManifestExtension("efModules", "Sqlite")]
+
+namespace Sample.Features;
+
+[ShellFeature("PackFeature", DisplayName = "Pack Feature")]
+public sealed class PackFeature : IShellFeature
+{
+    public string Endpoint { get; set; } = "";
+}
+""");
+
+        var pack = await project.PackWithBuildAsync("Release");
+
+        pack.ExitCode.Should().Be(0, pack.CombinedOutput);
+        NuGetPackageInspector.AssertSingleEntry(project.ReleasePackagePath, "elsa-package.json");
+        NuGetPackageInspector.ReadEntry(project.ReleasePackagePath, "elsa-package.json").Should().Contain("\"efModules\": \"Sqlite\"");
+    }
+
+    [Fact]
     public async Task Pack_of_non_packable_project_does_not_run_manifest_generation()
     {
         // Non-packable projects (test/host projects) produce no package, and `dotnet pack` skips their build,
