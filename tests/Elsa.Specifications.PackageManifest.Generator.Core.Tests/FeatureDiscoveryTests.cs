@@ -1049,7 +1049,7 @@ public sealed class SampleFeature : IShellFeature
 """);
         var build = await project.BuildAsync();
         Assert.Equal(0, build.ExitCode);
-        var overridePath = Path.Combine(project.ProjectDirectory, "elsa-package.overrides.json");
+        var overridePath = Path.Join(project.ProjectDirectory, "elsa-package.overrides.json");
         await File.WriteAllTextAsync(overridePath, """
 {
   "package": {
@@ -1086,7 +1086,7 @@ public sealed class SampleFeature : IShellFeature
 """);
         var build = await project.BuildAsync();
         Assert.Equal(0, build.ExitCode);
-        var overridePath = Path.Combine(project.ProjectDirectory, "elsa-package.overrides.json");
+        var overridePath = Path.Join(project.ProjectDirectory, "elsa-package.overrides.json");
         await File.WriteAllTextAsync(overridePath, """
 {
   "package": {
