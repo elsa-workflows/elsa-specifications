@@ -65,7 +65,7 @@ public sealed class PackTargetBehaviorTests
 using CShells.Features;
 using Elsa.Specifications.PackageManifest.Generator.Hints;
 
-[assembly: ManifestExtension("efModules", "Sqlite")]
+[assembly: ManifestExtension("sampleKey", "alpha")]
 
 namespace Sample.Features;
 
@@ -80,7 +80,7 @@ public sealed class PackFeature : IShellFeature
 
         pack.ExitCode.Should().Be(0, pack.CombinedOutput);
         NuGetPackageInspector.AssertSingleEntry(project.ReleasePackagePath, "elsa-package.json");
-        NuGetPackageInspector.ReadEntry(project.ReleasePackagePath, "elsa-package.json").Should().Contain("\"efModules\": \"Sqlite\"");
+        NuGetPackageInspector.ReadEntry(project.ReleasePackagePath, "elsa-package.json").Should().Contain("\"sampleKey\": \"alpha\"");
     }
 
     [Fact]

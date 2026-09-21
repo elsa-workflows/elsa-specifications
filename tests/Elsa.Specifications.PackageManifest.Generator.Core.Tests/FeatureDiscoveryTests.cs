@@ -864,12 +864,12 @@ public sealed class StudioWidgetFeature : IShellFeature
 using CShells.Features;
 using Elsa.Specifications.PackageManifest.Generator.Hints;
 
-[assembly: ManifestExtension("efModules", "Sqlite")]
+[assembly: ManifestExtension("sampleKey", "alpha")]
 
 namespace Sample.Features;
 
-[ShellFeature("EfModules", DisplayName = "EF Modules")]
-public sealed class EfModulesFeature : IShellFeature
+[ShellFeature("SampleFeature", DisplayName = "Sample Feature")]
+public sealed class SampleFeature : IShellFeature
 {
 }
 """);
@@ -879,7 +879,7 @@ public sealed class EfModulesFeature : IShellFeature
         var result = Generate(project);
         using var document = JsonDocument.Parse(result.artifact.ManifestJson);
 
-        Assert.Equal("Sqlite", document.RootElement.GetProperty("extensions").GetProperty("efModules").GetString());
+        Assert.Equal("alpha", document.RootElement.GetProperty("extensions").GetProperty("sampleKey").GetString());
     }
 
     [Fact]
@@ -890,15 +890,15 @@ public sealed class EfModulesFeature : IShellFeature
 using CShells.Features;
 using Elsa.Specifications.PackageManifest.Generator.Hints;
 
-[assembly: ManifestExtension("efModules", "Sqlite")]
-[assembly: ManifestExtension("efModules", "SqlServer")]
+[assembly: ManifestExtension("sampleKey", "Beta")]
+[assembly: ManifestExtension("sampleKey", "alpha")]
 
 namespace Sample.Features;
 
 [ManifestExtension("tier", "gold")]
 [ManifestExtension("tier", "bronze")]
-[ShellFeature("EfModules", DisplayName = "EF Modules")]
-public sealed class EfModulesFeature : IShellFeature
+[ShellFeature("SampleFeature", DisplayName = "Sample Feature")]
+public sealed class SampleFeature : IShellFeature
 {
     [ManifestExtension("kind", "secondary")]
     [ManifestExtension("kind", "primary")]
@@ -911,10 +911,10 @@ public sealed class EfModulesFeature : IShellFeature
         var result = Generate(project);
         using var document = JsonDocument.Parse(result.artifact.ManifestJson);
 
-        // Ordinal sort: uppercase letters sort before lowercase ones, so "SqlServer" precedes "Sqlite".
+        // Ordinal sort: uppercase letters sort before lowercase ones, so "Beta" precedes "alpha".
         Assert.Equal(
-            ["SqlServer", "Sqlite"],
-            document.RootElement.GetProperty("extensions").GetProperty("efModules").EnumerateArray().Select(x => x.GetString()));
+            ["Beta", "alpha"],
+            document.RootElement.GetProperty("extensions").GetProperty("sampleKey").EnumerateArray().Select(x => x.GetString()));
 
         var feature = document.RootElement.GetProperty("features")[0];
         Assert.Equal(
@@ -925,6 +925,34 @@ public sealed class EfModulesFeature : IShellFeature
         Assert.Equal(
             ["primary", "secondary"],
             setting.GetProperty("extensions").GetProperty("kind").EnumerateArray().Select(x => x.GetString()));
+    }
+
+    [Fact]
+    public async Task Generate_de_duplicates_identical_repeated_manifest_extension_values()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.Specifications.PackageManifest.Generator.Hints;
+
+[assembly: ManifestExtension("sampleKey", "alpha")]
+[assembly: ManifestExtension("sampleKey", "alpha")]
+
+namespace Sample.Features;
+
+[ShellFeature("SampleFeature", DisplayName = "Sample Feature")]
+public sealed class SampleFeature : IShellFeature
+{
+}
+""");
+        var build = await project.BuildAsync();
+        Assert.Equal(0, build.ExitCode);
+
+        var result = Generate(project);
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+
+        // Two identical values collapse to a plain string rather than a one-element array.
+        Assert.Equal("alpha", document.RootElement.GetProperty("extensions").GetProperty("sampleKey").GetString());
     }
 
     [Fact]
@@ -942,8 +970,8 @@ using Elsa.Specifications.PackageManifest.Generator.Hints;
 
 namespace Sample.Features;
 
-[ShellFeature("EfModules", DisplayName = "EF Modules")]
-public sealed class EfModulesFeature : IShellFeature
+[ShellFeature("SampleFeature", DisplayName = "Sample Feature")]
+public sealed class SampleFeature : IShellFeature
 {
 }
 """);
@@ -961,6 +989,37 @@ public sealed class EfModulesFeature : IShellFeature
     }
 
     [Fact]
+    public async Task Generate_never_lets_assembly_level_manifest_extension_supply_a_built_in_package_key_the_project_has_no_value_for()
+    {
+        // Regression: a null built-in value must not let the attribute's key through, or a project with
+        // no repository URL or readme file would get one silently supplied from an assembly attribute.
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.Specifications.PackageManifest.Generator.Hints;
+
+[assembly: ManifestExtension("repositoryUrl", "https://example.invalid/attribute")]
+[assembly: ManifestExtension("readmeFile", "ATTRIBUTE.md")]
+
+namespace Sample.Features;
+
+[ShellFeature("SampleFeature", DisplayName = "Sample Feature")]
+public sealed class SampleFeature : IShellFeature
+{
+}
+""");
+        var build = await project.BuildAsync();
+        Assert.Equal(0, build.ExitCode);
+
+        var result = Generate(project);
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+        var extensions = document.RootElement.GetProperty("extensions");
+
+        Assert.False(extensions.TryGetProperty("repositoryUrl", out _));
+        Assert.False(extensions.TryGetProperty("readmeFile", out _));
+    }
+
+    [Fact]
     public async Task Generate_lets_override_file_extension_win_over_assembly_level_manifest_extension()
     {
         await using var project = new SampleProjectBuilder()
@@ -968,12 +1027,12 @@ public sealed class EfModulesFeature : IShellFeature
 using CShells.Features;
 using Elsa.Specifications.PackageManifest.Generator.Hints;
 
-[assembly: ManifestExtension("efModules", "Sqlite")]
+[assembly: ManifestExtension("sampleKey", "alpha")]
 
 namespace Sample.Features;
 
-[ShellFeature("EfModules", DisplayName = "EF Modules")]
-public sealed class EfModulesFeature : IShellFeature
+[ShellFeature("SampleFeature", DisplayName = "Sample Feature")]
+public sealed class SampleFeature : IShellFeature
 {
 }
 """);
@@ -984,7 +1043,7 @@ public sealed class EfModulesFeature : IShellFeature
 {
   "package": {
     "extensions": {
-      "efModules": "PostgreSql"
+      "sampleKey": "beta"
     }
   }
 }
@@ -993,7 +1052,45 @@ public sealed class EfModulesFeature : IShellFeature
         var result = Generate(project, overridePath);
         using var document = JsonDocument.Parse(result.artifact.ManifestJson);
 
-        Assert.Equal("PostgreSql", document.RootElement.GetProperty("extensions").GetProperty("efModules").GetString());
+        Assert.Equal("beta", document.RootElement.GetProperty("extensions").GetProperty("sampleKey").GetString());
+    }
+
+    [Fact]
+    public async Task Generate_lets_override_file_extension_replace_an_accumulated_assembly_level_array_entirely()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.Specifications.PackageManifest.Generator.Hints;
+
+[assembly: ManifestExtension("sampleKey", "alpha")]
+[assembly: ManifestExtension("sampleKey", "beta")]
+
+namespace Sample.Features;
+
+[ShellFeature("SampleFeature", DisplayName = "Sample Feature")]
+public sealed class SampleFeature : IShellFeature
+{
+}
+""");
+        var build = await project.BuildAsync();
+        Assert.Equal(0, build.ExitCode);
+        var overridePath = Path.Combine(project.ProjectDirectory, "elsa-package.overrides.json");
+        await File.WriteAllTextAsync(overridePath, """
+{
+  "package": {
+    "extensions": {
+      "sampleKey": "override-value"
+    }
+  }
+}
+""");
+
+        var result = Generate(project, overridePath);
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+
+        // The override file's single value replaces the whole accumulated array, not just one entry.
+        Assert.Equal("override-value", document.RootElement.GetProperty("extensions").GetProperty("sampleKey").GetString());
     }
 
     [Fact]

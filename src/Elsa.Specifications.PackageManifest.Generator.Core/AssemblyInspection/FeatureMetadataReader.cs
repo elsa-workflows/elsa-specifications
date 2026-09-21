@@ -105,11 +105,13 @@ public sealed class FeatureMetadataReader
 
     /// <summary>
     /// A key declared once stays a plain string; a key declared more than once at the same level accumulates
-    /// into a JSON array of its values, sorted ordinally, so output is deterministic.
+    /// into a JSON array of its distinct values, sorted ordinally, so output is deterministic. Identical
+    /// values are de-duplicated (ordinal comparison) before that decision, so a key declared twice with the
+    /// same value stays a plain string.
     /// </summary>
     private static object? AccumulateExtensionValues(IEnumerable<string?> values)
     {
-        var collected = values.ToArray();
+        var collected = values.Distinct(StringComparer.Ordinal).ToArray();
         return collected.Length <= 1
             ? collected.FirstOrDefault()
             : collected.OrderBy(x => x, StringComparer.Ordinal).ToArray();
