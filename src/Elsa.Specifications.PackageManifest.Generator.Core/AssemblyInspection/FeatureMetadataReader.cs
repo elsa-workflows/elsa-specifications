@@ -8,7 +8,7 @@ public sealed class FeatureMetadataReader
     private const string ManifestRuntimeKindAttributeName = "Elsa.Specifications.PackageManifest.Generator.Hints.ManifestRuntimeKindAttribute";
 
     public PackageHintMetadata ReadPackageMetadata(Assembly assembly) =>
-        new(ReadRuntimeKinds(assembly));
+        new(ReadRuntimeKinds(assembly), ReadExtensions(assembly));
 
     public FeatureMetadata ReadFeatureMetadata(Type type)
     {
@@ -82,9 +82,16 @@ public sealed class FeatureMetadataReader
             ReadExtensionPairs(FeatureTypeMatcher.ReadNamedStringArray(attribute, "Parameters")));
     }
 
-    private static IReadOnlyDictionary<string, object?> ReadExtensions(MemberInfo member)
+    private static IReadOnlyDictionary<string, object?> ReadExtensions(ICustomAttributeProvider provider)
     {
-        return member.GetCustomAttributesData()
+        var attributes = provider switch
+        {
+            Assembly assembly => assembly.GetCustomAttributesData(),
+            MemberInfo member => member.GetCustomAttributesData(),
+            _ => []
+        };
+
+        return attributes
             .Where(x => x.AttributeType.FullName == "Elsa.Specifications.PackageManifest.Generator.Hints.ManifestExtensionAttribute")
             .Select(x => new
             {
@@ -93,7 +100,21 @@ public sealed class FeatureMetadataReader
             })
             .Where(x => !string.IsNullOrWhiteSpace(x.Key))
             .GroupBy(x => x.Key!, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(x => x.Key, x => (object?)x.Last().Value, StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(x => x.Key, x => AccumulateExtensionValues(x.Select(v => v.Value)), StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// A key declared once stays a plain string; a key declared more than once at the same level accumulates
+    /// into a JSON array of its distinct values, sorted ordinally, so output is deterministic. Identical
+    /// values are de-duplicated (ordinal comparison) before that decision, so a key declared twice with the
+    /// same value stays a plain string.
+    /// </summary>
+    private static object? AccumulateExtensionValues(IEnumerable<string?> values)
+    {
+        var collected = values.Distinct(StringComparer.Ordinal).ToArray();
+        return collected.Length <= 1
+            ? collected.FirstOrDefault()
+            : collected.OrderBy(x => x, StringComparer.Ordinal).ToArray();
     }
 
     private static IReadOnlyList<string> ReadFeatureCategoryAttributes(MemberInfo member) =>
@@ -180,7 +201,7 @@ public sealed class FeatureMetadataReader
     }
 }
 
-public sealed record PackageHintMetadata(IReadOnlyList<string> RuntimeKinds);
+public sealed record PackageHintMetadata(IReadOnlyList<string> RuntimeKinds, IReadOnlyDictionary<string, object?> Extensions);
 
 public sealed record FeatureMetadata(
     string FeatureName,

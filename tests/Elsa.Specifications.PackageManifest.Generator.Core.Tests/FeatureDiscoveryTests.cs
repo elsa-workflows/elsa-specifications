@@ -857,6 +857,254 @@ public sealed class StudioWidgetFeature : IShellFeature
     }
 
     [Fact]
+    public async Task Generate_reads_assembly_level_manifest_extension_into_package_extensions_without_a_reserved_key_warning()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.Specifications.PackageManifest.Generator.Hints;
+
+[assembly: ManifestExtension("sampleKey", "alpha")]
+
+namespace Sample.Features;
+
+[ShellFeature("SampleFeature", DisplayName = "Sample Feature")]
+public sealed class SampleFeature : IShellFeature
+{
+}
+""");
+        var build = await project.BuildAsync();
+        Assert.Equal(0, build.ExitCode);
+
+        var result = Generate(project);
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+
+        Assert.Equal("alpha", document.RootElement.GetProperty("extensions").GetProperty("sampleKey").GetString());
+        AssertReservedKeyWarnings(result.diagnostics);
+    }
+
+    [Fact]
+    public async Task Generate_accumulates_repeated_manifest_extension_keys_into_sorted_array_at_every_level()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.Specifications.PackageManifest.Generator.Hints;
+
+[assembly: ManifestExtension("sampleKey", "Beta")]
+[assembly: ManifestExtension("sampleKey", "alpha")]
+
+namespace Sample.Features;
+
+[ManifestExtension("tier", "gold")]
+[ManifestExtension("tier", "bronze")]
+[ShellFeature("SampleFeature", DisplayName = "Sample Feature")]
+public sealed class SampleFeature : IShellFeature
+{
+    [ManifestExtension("kind", "secondary")]
+    [ManifestExtension("kind", "primary")]
+    public string? Provider { get; set; }
+}
+""");
+        var build = await project.BuildAsync();
+        Assert.Equal(0, build.ExitCode);
+
+        var result = Generate(project);
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+
+        // Ordinal sort: uppercase letters sort before lowercase ones, so "Beta" precedes "alpha".
+        Assert.Equal(
+            ["Beta", "alpha"],
+            document.RootElement.GetProperty("extensions").GetProperty("sampleKey").EnumerateArray().Select(x => x.GetString()));
+
+        var feature = document.RootElement.GetProperty("features")[0];
+        Assert.Equal(
+            ["bronze", "gold"],
+            feature.GetProperty("extensions").GetProperty("tier").EnumerateArray().Select(x => x.GetString()));
+
+        var setting = feature.GetProperty("settings")[0];
+        Assert.Equal(
+            ["primary", "secondary"],
+            setting.GetProperty("extensions").GetProperty("kind").EnumerateArray().Select(x => x.GetString()));
+    }
+
+    [Fact]
+    public async Task Generate_de_duplicates_identical_repeated_manifest_extension_values()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.Specifications.PackageManifest.Generator.Hints;
+
+[assembly: ManifestExtension("sampleKey", "alpha")]
+[assembly: ManifestExtension("sampleKey", "alpha")]
+
+namespace Sample.Features;
+
+[ShellFeature("SampleFeature", DisplayName = "Sample Feature")]
+public sealed class SampleFeature : IShellFeature
+{
+}
+""");
+        var build = await project.BuildAsync();
+        Assert.Equal(0, build.ExitCode);
+
+        var result = Generate(project);
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+
+        // Two identical values collapse to a plain string rather than a one-element array.
+        Assert.Equal("alpha", document.RootElement.GetProperty("extensions").GetProperty("sampleKey").GetString());
+    }
+
+    [Fact]
+    public async Task Generate_never_lets_assembly_level_manifest_extension_replace_a_built_in_package_key()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.Specifications.PackageManifest.Generator.Hints;
+
+[assembly: ManifestExtension("authors", "Someone Else")]
+[assembly: ManifestExtension("authors", "Yet Another")]
+[assembly: ManifestExtension("repositoryUrl", "https://example.invalid/attribute")]
+[assembly: ManifestExtension("readmeFile", "ATTRIBUTE.md")]
+[assembly: ManifestExtension("targetFrameworks", "netstandard1.0")]
+
+namespace Sample.Features;
+
+[ShellFeature("SampleFeature", DisplayName = "Sample Feature")]
+public sealed class SampleFeature : IShellFeature
+{
+}
+""");
+        var build = await project.BuildAsync();
+        Assert.Equal(0, build.ExitCode);
+
+        var result = Generate(project, repositoryUrl: "https://example.invalid/real", readmeFile: "README.md");
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+        var extensions = document.RootElement.GetProperty("extensions");
+
+        Assert.Equal(["Elsa"], extensions.GetProperty("authors").EnumerateArray().Select(x => x.GetString()));
+        Assert.Equal("net10.0", extensions.GetProperty("targetFrameworks").EnumerateArray().Single().GetString());
+        Assert.Equal("https://example.invalid/real", extensions.GetProperty("repositoryUrl").GetString());
+        Assert.Equal("README.md", extensions.GetProperty("readmeFile").GetString());
+
+        // One warning per rejected key, not per attribute occurrence: "authors" is declared twice with
+        // different values, and the four reserved keys still yield exactly four warnings.
+        AssertReservedKeyWarnings(result.diagnostics, "authors", "readmeFile", "repositoryUrl", "targetFrameworks");
+    }
+
+    [Fact]
+    public async Task Generate_never_lets_assembly_level_manifest_extension_supply_a_built_in_package_key_the_project_has_no_value_for()
+    {
+        // Regression: a null built-in value must not let the attribute's key through, or a project with
+        // no repository URL or readme file would get one silently supplied from an assembly attribute.
+        // "ReadmeFile" is declared in a different case than the built-in "readmeFile" to prove the
+        // reservation is case-insensitive too.
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.Specifications.PackageManifest.Generator.Hints;
+
+[assembly: ManifestExtension("repositoryUrl", "https://example.invalid/attribute")]
+[assembly: ManifestExtension("ReadmeFile", "ATTRIBUTE.md")]
+
+namespace Sample.Features;
+
+[ShellFeature("SampleFeature", DisplayName = "Sample Feature")]
+public sealed class SampleFeature : IShellFeature
+{
+}
+""");
+        var build = await project.BuildAsync();
+        Assert.Equal(0, build.ExitCode);
+
+        var result = Generate(project);
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+        var extensions = document.RootElement.GetProperty("extensions");
+
+        Assert.False(extensions.TryGetProperty("repositoryUrl", out _));
+        Assert.False(extensions.TryGetProperty("readmeFile", out _));
+        Assert.False(extensions.TryGetProperty("ReadmeFile", out _));
+
+        AssertReservedKeyWarnings(result.diagnostics, "ReadmeFile", "repositoryUrl");
+    }
+
+    [Fact]
+    public async Task Generate_lets_override_file_extension_win_over_assembly_level_manifest_extension()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.Specifications.PackageManifest.Generator.Hints;
+
+[assembly: ManifestExtension("sampleKey", "alpha")]
+
+namespace Sample.Features;
+
+[ShellFeature("SampleFeature", DisplayName = "Sample Feature")]
+public sealed class SampleFeature : IShellFeature
+{
+}
+""");
+        var build = await project.BuildAsync();
+        Assert.Equal(0, build.ExitCode);
+        var overridePath = Path.Join(project.ProjectDirectory, "elsa-package.overrides.json");
+        await File.WriteAllTextAsync(overridePath, """
+{
+  "package": {
+    "extensions": {
+      "sampleKey": "beta"
+    }
+  }
+}
+""");
+
+        var result = Generate(project, overridePath);
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+
+        Assert.Equal("beta", document.RootElement.GetProperty("extensions").GetProperty("sampleKey").GetString());
+    }
+
+    [Fact]
+    public async Task Generate_lets_override_file_extension_replace_an_accumulated_assembly_level_array_entirely()
+    {
+        await using var project = new SampleProjectBuilder()
+            .WithSource("""
+using CShells.Features;
+using Elsa.Specifications.PackageManifest.Generator.Hints;
+
+[assembly: ManifestExtension("sampleKey", "alpha")]
+[assembly: ManifestExtension("sampleKey", "beta")]
+
+namespace Sample.Features;
+
+[ShellFeature("SampleFeature", DisplayName = "Sample Feature")]
+public sealed class SampleFeature : IShellFeature
+{
+}
+""");
+        var build = await project.BuildAsync();
+        Assert.Equal(0, build.ExitCode);
+        var overridePath = Path.Join(project.ProjectDirectory, "elsa-package.overrides.json");
+        await File.WriteAllTextAsync(overridePath, """
+{
+  "package": {
+    "extensions": {
+      "sampleKey": "override-value"
+    }
+  }
+}
+""");
+
+        var result = Generate(project, overridePath);
+        using var document = JsonDocument.Parse(result.artifact.ManifestJson);
+
+        // The override file's single value replaces the whole accumulated array, not just one entry.
+        Assert.Equal("override-value", document.RootElement.GetProperty("extensions").GetProperty("sampleKey").GetString());
+    }
+
+    [Fact]
     public async Task Generate_emits_bare_cshells_feature_name_for_dependencies()
     {
         await using var project = new SampleProjectBuilder()
@@ -895,11 +1143,29 @@ public sealed class JavaScriptFeature : IShellFeature
         Assert.False(dependency.TryGetProperty("packageId", out _));
     }
 
+    /// <summary>
+    /// Asserts that the reserved-key warnings are exactly one per expected key, each a warning. Comparing the
+    /// ordinally sorted target lists derives the count from <paramref name="expectedKeys"/>, so a second warning
+    /// for a key already listed, or a warning for a key not listed, fails just as a missing one does. Passing no
+    /// expected keys asserts that no reserved-key warning was emitted at all.
+    /// </summary>
+    private static void AssertReservedKeyWarnings(GenerationDiagnostics diagnostics, params string[] expectedKeys)
+    {
+        var warnings = diagnostics.Items.Where(x => x.Code == "EPMGEN_EXTENSION_RESERVED_KEY").ToArray();
+
+        Assert.All(warnings, x => Assert.Equal(GenerationDiagnosticSeverity.Warning, x.Severity));
+        Assert.Equal(
+            expectedKeys.OrderBy(x => x, StringComparer.Ordinal),
+            warnings.Select(x => x.Target).OrderBy(x => x, StringComparer.Ordinal));
+    }
+
     private static (GeneratedManifestArtifact artifact, GenerationDiagnostics diagnostics) Generate(
         SampleProjectBuilder project,
         string? overridePath = null,
         string packageId = "Sample.Elsa.Package",
-        string title = "Sample")
+        string title = "Sample",
+        string? repositoryUrl = null,
+        string? readmeFile = null)
     {
         var originalCulture = CultureInfo.CurrentCulture;
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("nl-NL");
@@ -909,7 +1175,7 @@ public sealed class JavaScriptFeature : IShellFeature
         {
             var artifact = generator.Generate(
                 new GeneratorOptions(true, Path.Combine(project.ProjectDirectory, "obj", "elsa-package.json"), true, "elsa-package.json", overridePath, "Error", false, false, false, "concise", []),
-                ProjectPackageMetadataMapper.Map(packageId, "1.2.3", title, "Sample package.", "Elsa", null, null, "elsa", null, null, "net10.0", null),
+                ProjectPackageMetadataMapper.Map(packageId, "1.2.3", title, "Sample package.", "Elsa", repositoryUrl, null, "elsa", null, readmeFile, "net10.0", null),
                 new AssemblyInspectionInput(project.AssemblyPath, project.XmlDocumentationPath, "net10.0", [], true),
                 diagnostics);
 

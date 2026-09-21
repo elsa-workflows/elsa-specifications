@@ -20,6 +20,7 @@ public sealed class FeatureDiscoveryService(
 
         return new DiscoveredManifestMetadata(
             ToCompatibility(packageMetadataHints.RuntimeKinds),
+            packageMetadataHints.Extensions,
             features);
     }
 

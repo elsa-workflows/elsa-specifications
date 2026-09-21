@@ -102,7 +102,7 @@ internal sealed class ManifestUIOptionsProviderAttribute(string provider) : Attr
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property)]
 internal sealed class ManifestIgnoreAttribute : Attribute;
 
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Property, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Property, AllowMultiple = true)]
 internal sealed class ManifestExtensionAttribute(string key, string value) : Attribute
 {
     public string Key { get; } = key;

@@ -46,6 +46,7 @@ public enum FeatureDiscoverySource
 
 public sealed record DiscoveredManifestMetadata(
     CompatibilityOverride? PackageCompatibility,
+    IReadOnlyDictionary<string, object?> PackageExtensions,
     IReadOnlyList<DiscoveredFeature> Features);
 
 public sealed record DiscoveredFeature(

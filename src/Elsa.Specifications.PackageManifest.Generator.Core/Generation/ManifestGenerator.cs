@@ -61,7 +61,7 @@ public sealed class ManifestGenerator
         var recommendedValidator = new RecommendedMetadataValidator();
         recommendedValidator.Validate(features, options.Strict, diagnostics);
 
-        var manifest = BuildManifest(packageMetadata, discovered.PackageCompatibility, features, manifestOverride);
+        var manifest = BuildManifest(packageMetadata, discovered.PackageCompatibility, discovered.PackageExtensions, features, manifestOverride, diagnostics);
         var manifestJson = DeterministicJsonSerializer.Serialize(manifest);
 
         var sizeValidator = new GeneratedManifestSizeValidator();
@@ -104,9 +104,18 @@ public sealed class ManifestGenerator
             options.IncludeInPackage);
     }
 
-    private static ElsaPackageManifest BuildManifest(ProjectPackageMetadata metadata, CompatibilityOverride? packageCompatibility, IReadOnlyList<DiscoveredFeature> features, ManifestOverride? manifestOverride)
+    private static ElsaPackageManifest BuildManifest(ProjectPackageMetadata metadata, CompatibilityOverride? packageCompatibility, IReadOnlyDictionary<string, object?> assemblyExtensions, IReadOnlyList<DiscoveredFeature> features, ManifestOverride? manifestOverride, GenerationDiagnostics diagnostics)
     {
         var packageOverride = manifestOverride?.Package;
+        var builtInExtensions = new Dictionary<string, object?>
+        {
+            ["authors"] = metadata.Authors,
+            ["repositoryUrl"] = metadata.RepositoryUrl,
+            ["readmeFile"] = metadata.PackageReadmeFile,
+            ["targetFrameworks"] = metadata.TargetFrameworks
+        };
+        var reservedAssemblyExtensions = RejectReservedAssemblyExtensions(assemblyExtensions, builtInExtensions.Keys, diagnostics);
+
         return new ElsaPackageManifest
         {
             Package = new PackageIdentityManifest
@@ -123,14 +132,39 @@ public sealed class ManifestGenerator
             Conflicts = ToConflicts(packageOverride?.Conflicts),
             License = ToLicense(packageOverride?.License, metadata.PackageLicenseExpression),
             Documentation = ToDocumentation(packageOverride?.Documentation, metadata.PackageProjectUrl),
-            Extensions = MergeExtensions(packageOverride?.Extensions, new Dictionary<string, object?>
-            {
-                ["authors"] = metadata.Authors,
-                ["repositoryUrl"] = metadata.RepositoryUrl,
-                ["readmeFile"] = metadata.PackageReadmeFile,
-                ["targetFrameworks"] = metadata.TargetFrameworks
-            })
+            // Precedence, lowest to highest: assembly-level [ManifestExtension] (built-in key names rejected
+            // above regardless of the built-in's own value), then the override file, then the built-in package
+            // keys themselves, which the override file can still supply when the project defines no value.
+            Extensions = MergeExtensions(MergeExtensions(reservedAssemblyExtensions, packageOverride?.Extensions), builtInExtensions)
         };
+    }
+
+    /// <summary>
+    /// Assembly-level [ManifestExtension] keys that name a built-in package key (compared ordinal
+    /// ignore-case) never reach the package-level extensions, regardless of whether the built-in
+    /// itself has a value. This keeps a project with no repository URL or readme file from having
+    /// an attribute silently supply one.
+    /// </summary>
+    private static IReadOnlyDictionary<string, object?> RejectReservedAssemblyExtensions(IReadOnlyDictionary<string, object?> assemblyExtensions, IEnumerable<string> reservedKeys, GenerationDiagnostics diagnostics)
+    {
+        var reserved = new HashSet<string>(reservedKeys, StringComparer.OrdinalIgnoreCase);
+        var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in assemblyExtensions)
+        {
+            if (reserved.Contains(item.Key))
+            {
+                diagnostics.Warning(
+                    "EPMGEN_EXTENSION_RESERVED_KEY",
+                    $"Assembly-level [ManifestExtension(\"{item.Key}\", ...)] was ignored because '{item.Key}' is a built-in package key.",
+                    item.Key,
+                    category: GenerationDiagnosticCategory.InvalidInput);
+                continue;
+            }
+
+            result[item.Key] = item.Value;
+        }
+
+        return result;
     }
 
     private static string DefaultPackageDisplayName(ProjectPackageMetadata metadata)
