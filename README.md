@@ -17,6 +17,10 @@ Add the generator to a package project with `PrivateAssets="all"`:
 
 See the package-specific READMEs for usage and the supported MSBuild properties.
 
+## Publishing
+
+Previews publish as `<next-version>-preview.<run>` from `main`. Bump `Version` in `Directory.Build.props` to the next release right after a stable release, so previews keep sorting above it.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

@@ -61,8 +61,16 @@ jobs:
       - name: Restore
         run: dotnet restore Elsa.Specifications.sln
 
+      - name: Determine base version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_version="$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props)"
+          echo "base=$base_version" >> "$GITHUB_OUTPUT"
+
       - name: Pack preview
-        run: dotnet pack Elsa.Specifications.sln --configuration Release --no-restore --output artifacts/packages -p:Version=0.0.1-preview.${{ github.run_number }}
+        run: dotnet pack Elsa.Specifications.sln --configuration Release --no-restore --output artifacts/packages -p:Version=${{ steps.version.outputs.base }}-preview.${{ github.run_number }}
 
       - name: Verify generator package
         run: eng/verify-generator-package.sh artifacts/packages
